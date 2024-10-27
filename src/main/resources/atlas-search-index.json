@@ -1,0 +1,19 @@
+{
+  "mappings": {
+    "fields": {
+      "caption": [{"type": "string"}],
+      "hasPerson": {"type": "boolean"},
+      "accessory": [{"type": "token"}, {"type": "stringFacet"}],
+      "animal": [{"type": "token"}, {"type": "stringFacet"}],
+      "appliance": [{"type": "token"}, {"type": "stringFacet"}],
+      "electronic": [{"type": "token"}, {"type": "stringFacet"}],
+      "food": [{"type": "token"}, {"type": "stringFacet"}],
+      "furniture": [{"type": "token"}, {"type": "stringFacet"}],
+      "indoor": [{"type": "token"}, {"type": "stringFacet"}],
+      "kitchen": [{"type": "token"}, {"type": "stringFacet"}],
+      "outdoor": [{"type": "token"}, {"type": "stringFacet"}],
+      "sports": [{"type": "token"}, {"type": "stringFacet"}],
+      "vehicle": [{"type": "token"}, {"type": "stringFacet"}]
+    }
+  }
+}
