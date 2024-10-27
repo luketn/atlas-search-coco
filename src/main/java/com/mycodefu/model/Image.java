@@ -1,6 +1,7 @@
 package com.mycodefu.model;
 
 import java.util.Date;
+import java.util.List;
 
 public record Image(
         int id,
@@ -9,17 +10,18 @@ public record Image(
         int height,
         int width,
         Date dateCaptured,
-        int license,
+        String licenseName,
+        String licenseUrl,
         boolean hasPerson,
-        String[] accessory,
-        String[] animal,
-        String[] appliance,
-        String[] electronic,
-        String[] food,
-        String[] furniture,
-        String[] indoor,
-        String[] kitchen,
-        String[] outdoor,
-        String[] sports,
-        String[] vehicle
+        List<String> accessory,
+        List<String> animal,
+        List<String> appliance,
+        List<String> electronic,
+        List<String> food,
+        List<String> furniture,
+        List<String> indoor,
+        List<String> kitchen,
+        List<String> outdoor,
+        List<String> sports,
+        List<String> vehicle
 ) { }

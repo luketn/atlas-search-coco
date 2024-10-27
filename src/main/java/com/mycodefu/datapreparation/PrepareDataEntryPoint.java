@@ -6,6 +6,12 @@ import com.mycodefu.model.License;
 import com.mycodefu.datapreparation.source.CaptionDataSource;
 import com.mycodefu.datapreparation.source.ImageObject;
 import com.mycodefu.datapreparation.source.InstanceDataSource;
+import com.mycodefu.mongodb.CategoryDataAccess;
+import com.mycodefu.mongodb.ImageDataAccess;
+import com.mycodefu.mongodb.atlas.MongoConnection;
+import org.bson.BsonDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,8 +20,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -26,18 +34,41 @@ import static com.mycodefu.datapreparation.util.JsonUtil.writeToFile;
  * This class reads the COCO dataset annotations from a zip file and writes the data to JSON files.
  */
 public class PrepareDataEntryPoint {
+    private static final Logger log = LoggerFactory.getLogger(PrepareDataEntryPoint.class);
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         CocoDataset cocoDataset = downloadCocoDataset();
 
-        List<License> licenses = getLicenses(cocoDataset);
         List<Category> categories = getCategories(cocoDataset);
         List<Image> images = getImages(cocoDataset);
 
-        //todo: write to the local mongodb, then create the atlas index using a utility
+        writeToLocalMongoDB(categories, images);
+
+        buildAtlasIndex();
 
         // uncomment to refresh the data in the test resources
         // writeSampleData(images, licenses, categories);
+    }
+
+    private static void writeToLocalMongoDB(List<Category> categories, List<Image> images) throws IOException {
+        CategoryDataAccess categoryDataAccess = CategoryDataAccess.getInstance();
+        categoryDataAccess.insertBulk(categories);
+
+        ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+        imageDataAccess.insertBulk(images);
+    }
+
+    private static void buildAtlasIndex() throws IOException {
+        URL resource = PrepareDataEntryPoint.class.getResource("/atlas-search-index.json");
+        Path path = Path.of(Objects.requireNonNull(resource).getPath());
+        String indexResource = Files.readString(path);
+
+        MongoConnection.createAtlasIndex(
+            MongoConnection.database_name,
+            CategoryDataAccess.collection_name,
+            MongoConnection.index_name,
+            BsonDocument.parse(indexResource)
+        );
     }
 
     private static void writeSampleData(List<Image> images, List<License> licenses, List<Category> categories) {
@@ -65,9 +96,9 @@ public class PrepareDataEntryPoint {
         Map<String, Integer> animalCategoryCounts = new HashMap<>();
         ArrayList<Image> animalImageInfos = new ArrayList<>(images.stream()
                 .filter(image -> image.animal() != null)
-                .filter(image -> image.animal().length > 0)
+                .filter(image -> !image.animal().isEmpty())
                 .filter(image -> {
-                    String animal = image.animal()[0];
+                    String animal = image.animal().getFirst();
                     animalCategoryCounts.put(animal, animalCategoryCounts.getOrDefault(animal, 0) + 1);
                     return animalCategoryCounts.get(animal) <= 10;
                 })
@@ -75,7 +106,7 @@ public class PrepareDataEntryPoint {
 
         //sort by animal string and then date captured
         animalImageInfos
-                .sort(Comparator.comparing((Image i) -> i.animal().length > 0 ? i.animal()[0] : "")
+                .sort(Comparator.comparing((Image i) -> i.animal().isEmpty() ? "" : i.animal().getFirst())
                         .thenComparing(Image::dateCaptured));
         return animalImageInfos;
     }
@@ -95,6 +126,9 @@ public class PrepareDataEntryPoint {
         for (InstanceDataSource.Annotation annotation : cocoDataset.instanceDataSource().annotations()) {
             instanceAnnotationMap.computeIfAbsent(annotation.image_id(), k -> new ArrayList<>()).add(annotation);
         }
+
+        List<License> licenses = getLicenses(cocoDataset);
+        Map<Integer, License> licenseMap = licenses.stream().collect(Collectors.toMap(License::id, Function.identity()));
 
         List<Image> images = new ArrayList<>();
         for (CaptionDataSource.Image image : cocoDataset.captionDataSource().images()) {
@@ -120,18 +154,20 @@ public class PrepareDataEntryPoint {
 
             Date dateCaptured = parseDateFromSourceImage(image);
 
-            String[] accessory = categoriesForSuperCategory(objects, "accessory");
-            String[] animal = categoriesForSuperCategory(objects, "animal");
-            String[] appliance = categoriesForSuperCategory(objects, "appliance");
-            String[] electronic = categoriesForSuperCategory(objects, "electronic");
-            String[] food = categoriesForSuperCategory(objects, "food");
-            String[] furniture = categoriesForSuperCategory(objects, "furniture");
-            String[] indoor = categoriesForSuperCategory(objects, "indoor");
-            String[] kitchen = categoriesForSuperCategory(objects, "kitchen");
-            String[] outdoor = categoriesForSuperCategory(objects, "outdoor");
-            String[] person = categoriesForSuperCategory(objects, "person");
-            String[] sports = categoriesForSuperCategory(objects, "sports");
-            String[] vehicle = categoriesForSuperCategory(objects, "vehicle");
+            List<String> accessory = categoriesForSuperCategory(objects, "accessory");
+            List<String> animal = categoriesForSuperCategory(objects, "animal");
+            List<String> appliance = categoriesForSuperCategory(objects, "appliance");
+            List<String> electronic = categoriesForSuperCategory(objects, "electronic");
+            List<String> food = categoriesForSuperCategory(objects, "food");
+            List<String> furniture = categoriesForSuperCategory(objects, "furniture");
+            List<String> indoor = categoriesForSuperCategory(objects, "indoor");
+            List<String> kitchen = categoriesForSuperCategory(objects, "kitchen");
+            List<String> outdoor = categoriesForSuperCategory(objects, "outdoor");
+            List<String> person = categoriesForSuperCategory(objects, "person");
+            List<String> sports = categoriesForSuperCategory(objects, "sports");
+            List<String> vehicle = categoriesForSuperCategory(objects, "vehicle");
+
+            License license = licenseMap.get(image.license());
 
             Image imageInfo = new Image(
                     image.id(),
@@ -140,8 +176,9 @@ public class PrepareDataEntryPoint {
                     image.height(),
                     image.width(),
                     dateCaptured,
-                    image.license(),
-                    person != null && person.length > 0,
+                    license.name(),
+                    license.url(),
+                    person != null && !person.isEmpty(),
                     accessory,
                     animal,
                     appliance,
@@ -199,6 +236,7 @@ public class PrepareDataEntryPoint {
 
     private static CocoDataset downloadCocoDataset() {
         try {
+            log.info("Downloading COCO dataset annotations...");
             URL url = new URL("http://images.cocodataset.org/annotations/annotations_trainval2017.zip");
             try (
                     InputStream inputStream = url.openStream();
@@ -222,6 +260,7 @@ public class PrepareDataEntryPoint {
                     throw new IOException("Could not find instances_train2017.json in the zip file");
                 }
                 CocoDataset cocoDataset = new CocoDataset(captionDataSource, instanceDataSource);
+                log.info("Downloaded COCO dataset annotations.");
                 return cocoDataset;
             }
         } catch (IOException e) {
@@ -245,16 +284,16 @@ public class PrepareDataEntryPoint {
         return caption;
     }
 
-    private static String[] categoriesForSuperCategory(List<ImageObject> objects, String superCategory) {
+    private static List<String> categoriesForSuperCategory(List<ImageObject> objects, String superCategory) {
         if (objects == null) {
             return null;
         }
-        String[] categories = objects.stream()
+        List<String> categories = objects.stream()
                 .filter(o -> o.superCategory().equals(superCategory))
                 .map(ImageObject::category)
                 .distinct()
-                .toArray(String[]::new);
-        if (categories.length == 0) {
+                .toList();
+        if (categories.isEmpty()) {
             return null;
         }
         return categories;
