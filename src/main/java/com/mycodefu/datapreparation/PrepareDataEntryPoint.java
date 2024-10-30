@@ -2,7 +2,7 @@ package com.mycodefu.datapreparation;
 
 import com.mycodefu.model.Category;
 import com.mycodefu.model.Image;
-import com.mycodefu.model.License;
+import com.mycodefu.datapreparation.source.License;
 import com.mycodefu.datapreparation.source.CaptionDataSource;
 import com.mycodefu.datapreparation.source.ImageObject;
 import com.mycodefu.datapreparation.source.InstanceDataSource;
@@ -47,7 +47,7 @@ public class PrepareDataEntryPoint {
         buildAtlasIndex();
 
         // uncomment to refresh the data in the test resources
-        // writeSampleData(images, licenses, categories);
+//         writeSampleData(images, categories);
     }
 
     private static void writeToLocalMongoDB(List<Category> categories, List<Image> images) throws IOException {
@@ -71,9 +71,8 @@ public class PrepareDataEntryPoint {
         );
     }
 
-    private static void writeSampleData(List<Image> images, List<License> licenses, List<Category> categories) {
+    private static void writeSampleData(List<Image> images, List<Category> categories) {
         writeSampleData("image.json", getTenOfEachAnimal(images));
-        writeSampleData("license.json", licenses);
         writeSampleData("category.json", categories.stream().filter(c -> c.superCategory().equals("animal")).toList());
     }
 
