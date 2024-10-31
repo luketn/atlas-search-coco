@@ -5,6 +5,7 @@ import java.util.List;
 
 public record Image(
         int id,
+        //The caption describes the contents of the image and can be searched on using full text search.
         String caption,
         String url,
         int height,
@@ -12,7 +13,11 @@ public record Image(
         Date dateCaptured,
         String licenseName,
         String licenseUrl,
+        //True if the image shows a person.
         boolean hasPerson,
+        //Following fields are 'super categories'.
+        // Each item in the list is a category.
+        // One or more objects of each category listed is present in the image.
         List<String> accessory,
         List<String> animal,
         List<String> appliance,
