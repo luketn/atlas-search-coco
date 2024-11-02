@@ -1,3 +1,3 @@
 package com.mycodefu.model;
 
-public record Category(int id, String superCategory, String name) { }
+public record Category(int _id, String superCategory, String name) { }

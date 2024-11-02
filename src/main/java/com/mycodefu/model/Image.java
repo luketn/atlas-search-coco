@@ -4,7 +4,7 @@ import java.util.Date;
 import java.util.List;
 
 public record Image(
-        int id,
+        int _id,
         //The caption describes the contents of the image and can be searched on using full text search.
         String caption,
         String url,

@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static com.mongodb.MongoClientSettings.getDefaultCodecRegistry;
 import static com.mycodefu.mongodb.atlas.WaitUtil.waitUntil;
@@ -76,8 +77,10 @@ public class MongoConnection {
         }
 
         Instant start = Instant.now();
-
-        waitUntil(() -> createIndex(indexName, mappingsDocument, collection), 300, 100, "Atlas search index not created");
+        boolean indexCreated = createIndex(indexName, mappingsDocument, collection);
+        if (!indexCreated) {
+            throw new RuntimeException("Failed to create Atlas search index %s".formatted(indexName));
+        }
         waitUntil(() -> indexReady(collection, indexName), 300, 100, "Atlas search index not ready");
 
         //log time taken to create index with the collection and index name
@@ -90,8 +93,12 @@ public class MongoConnection {
         boolean indexCreated = false;
         try {
             dropSearchIndex(indexName, collection);
+            if (log.isDebugEnabled()) {
+                Set<String> fields = mappingsDocument.getDocument("mappings").getDocument("fields").keySet();
+                log.debug("Creating Atlas search index '%s' with fields: %s".formatted(indexName, fields));
+            }
             collection.createSearchIndex(indexName, mappingsDocument);
-            log.debug("Atlas search index %s created".formatted(indexName));
+            log.debug("Atlas search index '%s' created".formatted(indexName));
             indexCreated = true;
         } catch (Exception e) {
             log.warn("Error creating search index %s, retrying...".formatted(indexName), e);

@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,11 +52,13 @@ public class PrepareDataEntryPoint {
 //         writeSampleData(images, categories);
     }
 
-    private static void writeToLocalMongoDB(List<Category> categories, List<Image> images) throws IOException {
+    private static void writeToLocalMongoDB(List<Category> categories, List<Image> images) {
         CategoryDataAccess categoryDataAccess = CategoryDataAccess.getInstance();
+        categoryDataAccess.removeAll();
         categoryDataAccess.insertBulk(categories);
 
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+        imageDataAccess.removeAll();
         imageDataAccess.insertBulk(images);
     }
 
@@ -65,7 +69,7 @@ public class PrepareDataEntryPoint {
 
         MongoConnection.createAtlasIndex(
             MongoConnection.database_name,
-            CategoryDataAccess.collection_name,
+            ImageDataAccess.collection_name,
             MongoConnection.index_name,
             BsonDocument.parse(indexResource)
         );
@@ -236,7 +240,7 @@ public class PrepareDataEntryPoint {
     private static CocoDataset downloadCocoDataset() {
         try {
             log.info("Downloading COCO dataset annotations...");
-            URL url = new URL("http://images.cocodataset.org/annotations/annotations_trainval2017.zip");
+            URL url = new URI("http://images.cocodataset.org/annotations/annotations_trainval2017.zip").toURL();
             try (
                     InputStream inputStream = url.openStream();
                     ZipInputStream zipInputStream = new ZipInputStream(inputStream)
@@ -262,7 +266,7 @@ public class PrepareDataEntryPoint {
                 log.info("Downloaded COCO dataset annotations.");
                 return cocoDataset;
             }
-        } catch (IOException e) {
+        } catch (IOException | URISyntaxException e) {
             throw new RuntimeException("Failed to download coco.", e);
         }
     }

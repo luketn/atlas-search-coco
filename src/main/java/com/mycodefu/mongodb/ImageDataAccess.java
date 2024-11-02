@@ -5,6 +5,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mycodefu.model.Image;
 import com.mycodefu.mongodb.atlas.MongoConnection;
+import org.bson.Document;
 
 import java.util.List;
 
@@ -15,12 +16,11 @@ public class ImageDataAccess implements AutoCloseable {
     public static final String collection_name = "Image";
 
     private final MongoClient mongoClient;
-    private final MongoDatabase database;
     private final MongoCollection<Image> imageCollection;
 
     public ImageDataAccess(MongoClient mongoClient, String databaseName, String collectionName) {
         this.mongoClient = mongoClient;
-        this.database = mongoClient.getDatabase(databaseName);
+        MongoDatabase database = mongoClient.getDatabase(databaseName);
         this.imageCollection = database.getCollection(collectionName, Image.class);
     }
 
@@ -42,6 +42,10 @@ public class ImageDataAccess implements AutoCloseable {
 
     public Image get(int id) {
         return imageCollection.find(eq("id", id)).first();
+    }
+
+    public void removeAll() {
+        imageCollection.deleteMany(new Document());
     }
 
     public void close() {

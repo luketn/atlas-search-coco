@@ -5,6 +5,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mycodefu.model.Category;
 import com.mycodefu.mongodb.atlas.MongoConnection;
+import org.bson.Document;
 
 import java.util.List;
 
@@ -15,12 +16,11 @@ public class CategoryDataAccess implements AutoCloseable {
     public static final String collection_name = "Category";
 
     private final MongoClient mongoClient;
-    private final MongoDatabase database;
     private final MongoCollection<Category> categoryCollection;
 
     public CategoryDataAccess(MongoClient mongoClient, String databaseName, String collectionName) {
         this.mongoClient = mongoClient;
-        this.database = mongoClient.getDatabase(databaseName);
+        MongoDatabase database = mongoClient.getDatabase(databaseName);
         this.categoryCollection = database.getCollection(collectionName, Category.class);
     }
 
@@ -42,6 +42,10 @@ public class CategoryDataAccess implements AutoCloseable {
 
     public void insertBulk(List<Category> categories) {
         categoryCollection.insertMany(categories);
+    }
+
+    public void removeAll() {
+        categoryCollection.deleteMany(new Document());
     }
 
     public Category get(int id) {
