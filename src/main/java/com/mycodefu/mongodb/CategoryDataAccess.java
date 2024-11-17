@@ -7,6 +7,7 @@ import com.mycodefu.model.Category;
 import com.mycodefu.mongodb.atlas.MongoConnection;
 import org.bson.Document;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.mongodb.client.model.Filters.eq;
@@ -33,7 +34,7 @@ public class CategoryDataAccess implements AutoCloseable {
     }
 
     public List<Category> list() {
-        return categoryCollection.find().into(List.of());
+        return categoryCollection.find().into(new ArrayList<>());
     }
 
     public void insert(Category category) {

@@ -41,7 +41,7 @@ public class ImageDataAccess implements AutoCloseable {
     }
 
     public Image get(int id) {
-        return imageCollection.find(eq("id", id)).first();
+        return imageCollection.find(eq("_id", id)).first();
     }
 
     public void removeAll() {

@@ -39,6 +39,10 @@ public class PrepareDataEntryPoint {
     private static final Logger log = LoggerFactory.getLogger(PrepareDataEntryPoint.class);
 
     public static void main(String[] args) throws IOException {
+        downloadAndInitialiseDataset();
+    }
+
+    public static void downloadAndInitialiseDataset() throws IOException {
         CocoDataset cocoDataset = downloadCocoDataset();
 
         List<Category> categories = getCategories(cocoDataset);

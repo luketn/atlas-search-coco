@@ -1,0 +1,40 @@
+services:
+  mongodb-atlas:
+    image: mongodb/mongodb-atlas-local:8.0.3
+    hostname: mongodbatlas
+    ports:
+      - "65001:27017"
+    volumes:
+      - mongot:/var/lib/mongot
+      - mongodb:/data/db
+
+  java-app:
+    image: maven:3.9-amazoncorretto-21-al2023
+    ports:
+     - "8222:8222"
+    depends_on:
+      mongodb-atlas:
+        condition: service_healthy
+    volumes:
+      - code:/opt/app
+    working_dir: /opt/app
+    environment:
+        CONNECTION_STRING: "mongodb://mongodbatlas/?directConnection=true"
+    command: mvn package exec:java -Dexec.args="--loadData" -DskipTests
+
+
+volumes:
+  mongot:
+  mongodb:
+  code:
+    driver: local
+    driver_opts:
+      type: none
+      device: .
+      o: bind
+
+networks:
+  local-atlas-network:
+    ipam:
+      config:
+        - subnet: 10.89.0.0/24
