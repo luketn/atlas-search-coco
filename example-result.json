@@ -1,0 +1,67 @@
+{
+  "docs": [
+    {
+      "_id": 394,
+      "caption": "A dog is holding a frisbee standing on grass.",
+      "url": "http://images.cocodataset.org/train2017/000000000394.jpg",
+      "height": 611,
+      "width": 640,
+      "dateCaptured": {
+        "$date": "2013-11-18T09:44:51.000Z"
+      },
+      "licenseName": "Attribution-NonCommercial-NoDerivs License",
+      "licenseUrl": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+      "hasPerson": false,
+      "animal": [
+        "dog"
+      ],
+      "sports": [
+        "frisbee"
+      ]
+    },
+    ...
+  ],
+  "meta": [
+    {
+      "count": {
+        "total": {
+          "$numberLong": "366"
+        }
+      },
+      "facet": {
+        "sports": {
+          "buckets": [
+            {
+              "_id": "frisbee",
+              "count": {
+                "$numberLong": "364"
+              }
+            },
+            {
+              "_id": "sports ball",
+              "count": {
+                "$numberLong": "4"
+              }
+            },
+            {
+              "_id": "baseball glove",
+              "count": {
+                "$numberLong": "1"
+              }
+            }
+          ]
+        },
+        "animal": {
+          "buckets": [
+            {
+              "_id": "dog",
+              "count": {
+                "$numberLong": "366"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
