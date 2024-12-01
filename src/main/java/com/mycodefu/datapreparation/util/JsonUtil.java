@@ -62,5 +62,12 @@ public class JsonUtil {
             throw new RuntimeException("Error reading object from stream", e);
         }
     }
+    public static <T> T readValue(String json, Class<T> clazz) {
+        try {
+            return jacksonReader.readValue(json, clazz);
+        } catch (Exception e) {
+            throw new RuntimeException("Error reading object from string", e);
+        }
+    }
 
 }

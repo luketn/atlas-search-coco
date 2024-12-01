@@ -1,0 +1,54 @@
+[
+  {
+    $search: {
+      facet: {
+        operator: {
+          compound: {
+            filter: [
+              {
+                text: {
+                  path: "caption",
+                  query: "frisbee"
+                }
+              },
+              {
+                equals: {
+                  path: "animal",
+                  value: "dog"
+                }
+              }
+            ]
+          }
+        },
+        facets: {
+          animal: {
+            type: "string",
+            path: "animal",
+            numBuckets: 10
+          },
+          sports: {
+            type: "string",
+            path: "sports",
+            numBuckets: 10
+          }
+        }
+      },
+      count: {
+        type: "total"
+      }
+    }
+  },
+  {
+    $facet: {
+      docs: [],
+      meta: [
+        {
+          $replaceWith: "$$SEARCH_META"
+        },
+        {
+          $limit: 1
+        }
+      ]
+    }
+  }
+]
