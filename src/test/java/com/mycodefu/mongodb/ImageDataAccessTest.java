@@ -46,7 +46,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
     @Test
     public void search() {
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-        ImageSearchResult searchResult = imageDataAccess.search("Snow", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null);
+        ImageSearchResult searchResult = imageDataAccess.search("statue", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null);
         assertNotNull(searchResult);
         assertEquals(1, searchResult.docs().size());
         Image exampleImage = searchResult.docs().get(0);

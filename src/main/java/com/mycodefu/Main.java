@@ -3,6 +3,7 @@ package com.mycodefu;
 import com.mycodefu.datapreparation.util.JsonUtil;
 import com.mycodefu.model.Category;
 import com.mycodefu.model.Image;
+import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.mongodb.CategoryDataAccess;
 import com.mycodefu.mongodb.ImageDataAccess;
 import com.mycodefu.service.SimpleServer;
@@ -36,6 +37,29 @@ public class Main {
                     }
                     Image image = ImageDataAccess.getInstance().get(Integer.parseInt(id));
                     return JsonUtil.writeToString(image);
+                })
+                .addGetHandler("/image/search", params -> {
+                    String text = params.get("text");
+                    if (text == null) {
+                        return "Please provide a text parameter";
+                    }
+                    ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+                    ImageSearchResult result = imageDataAccess.search(
+                            text,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+                    return JsonUtil.writeToString(result);
                 })
                 .build();
 

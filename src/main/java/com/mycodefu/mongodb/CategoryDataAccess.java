@@ -14,7 +14,7 @@ import static com.mongodb.client.model.Filters.eq;
 import static com.mycodefu.mongodb.atlas.MongoConnection.database_name;
 
 public class CategoryDataAccess implements AutoCloseable {
-    public static final String collection_name = "Category";
+    public static final String collection_name = "category";
 
     private final MongoClient mongoClient;
     private final MongoCollection<Category> categoryCollection;

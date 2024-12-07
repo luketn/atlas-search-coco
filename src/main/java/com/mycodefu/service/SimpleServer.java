@@ -31,6 +31,7 @@ public class SimpleServer {
     public void start() {
         server.start();
         log.info("Server started on http://localhost:"+server.getAddress().getPort());
+        log.info("Example search http://localhost:"+server.getAddress().getPort()+"/image/search?text=red");
     }
 
     public void stop() {

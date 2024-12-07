@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.File;
 import java.io.InputStream;
@@ -11,7 +12,8 @@ import java.net.URL;
 
 public class JsonUtil {
     private static final ObjectMapper jacksonWriter = new ObjectMapper()
-            .setSerializationInclusion(JsonInclude.Include.NON_NULL);
+            .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+            .enable(SerializationFeature.INDENT_OUTPUT);
 
     private static final ObjectMapper jacksonReaderNoAutoClose = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -28,6 +30,13 @@ public class JsonUtil {
         }
     }
     public static String writeToString(Object object) {
+        try {
+            return jacksonWriter.writeValueAsString(object);
+        } catch (Exception e) {
+            throw new RuntimeException("Error writing object to string.", e);
+        }
+    }
+    public static String writeToStringIndented(Object object) {
         try {
             return jacksonWriter.writeValueAsString(object);
         } catch (Exception e) {
