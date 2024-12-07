@@ -4,9 +4,6 @@ services:
     hostname: mongodbatlas
     ports:
       - "65001:27017"
-    volumes:
-      - mongot:/var/lib/mongot
-      - mongodb:/data/db
 
   java-app:
     image: maven:3.9-amazoncorretto-21-al2023
@@ -24,8 +21,6 @@ services:
 
 
 volumes:
-  mongot:
-  mongodb:
   code:
     driver: local
     driver_opts:
