@@ -10,6 +10,7 @@ import com.mycodefu.service.SimpleServer;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Function;
 
 import static com.mycodefu.datapreparation.PrepareDataEntryPoint.downloadAndInitialiseDataset;
 
@@ -43,21 +44,41 @@ public class Main {
                     if (text == null) {
                         return "Please provide a text parameter";
                     }
+                    int page;
+                    if (params.containsKey("page")) {
+                        page = Integer.parseInt(params.get("page"));
+                    } else {
+                        page = 0;
+                    }
+                    Function<String, Boolean> booleanParam = (String key) -> {
+                        if (params.containsKey(key)) {
+                            return Boolean.parseBoolean(params.get(key));
+                        } else {
+                            return null;
+                        }
+                    };
+                    Function<String, List<String>> listParam = (String key) -> {
+                        if (params.containsKey(key)) {
+                            return List.of(params.get(key).split(","));
+                        } else {
+                            return null;
+                        }
+                    };
                     ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
                     ImageSearchResult result = imageDataAccess.search(
                             text,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            page,
+                            booleanParam.apply("hasPerson"),
+                            listParam.apply("animal"),
+                            listParam.apply("appliance"),
+                            listParam.apply("electronic"),
+                            listParam.apply("food"),
+                            listParam.apply("furniture"),
+                            listParam.apply("indoor"),
+                            listParam.apply("kitchen"),
+                            listParam.apply("outdoor"),
+                            listParam.apply("sports"),
+                            listParam.apply("vehicle")
                     );
                     return JsonUtil.writeToString(result);
                 })
