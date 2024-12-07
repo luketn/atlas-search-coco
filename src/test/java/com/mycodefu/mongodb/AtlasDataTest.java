@@ -6,11 +6,11 @@ import com.mycodefu.model.Image;
 import com.mycodefu.mongodb.atlas.MongoConnection;
 import org.bson.BsonDocument;
 import org.testcontainers.mongodb.MongoDBAtlasLocalContainer;
+import org.testcontainers.shaded.com.google.common.io.Resources;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
@@ -29,19 +29,20 @@ abstract class AtlasDataTest {
         List<Image> images = Arrays.asList(JsonUtil.readStream(imageDataStream, Image[].class));
         ImageDataAccess.getInstance().insertBulk(images);
 
-        InputStream atlasSearchMappingsStream = AtlasDataTest.class.getResourceAsStream("/atlas-search-index.json");
-        //read to a string
-        BufferedReader br = new BufferedReader(new InputStreamReader(atlasSearchMappingsStream));
-        StringBuilder sb = new StringBuilder();
-        br.lines().forEach(sb::append);
 
-        var atlasSearchMappings = BsonDocument.parse(sb.toString());
+        String atlasSearchMappingsString;
+        try {
+            atlasSearchMappingsString = Resources.toString(AtlasDataTest.class.getResource("/atlas-search-index.json"), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        var atlasSearchMappings = BsonDocument.parse(atlasSearchMappingsString);
         MongoConnection.createAtlasIndex(
                 MongoConnection.database_name,
                 ImageDataAccess.collection_name,
                 MongoConnection.index_name,
                 atlasSearchMappings
         );
-
     }
 }
