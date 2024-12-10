@@ -10,10 +10,7 @@ import com.mycodefu.datapreparation.util.JsonUtil;
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.mongodb.atlas.MongoConnection;
-import com.mycodefu.service.SimpleServer;
-import org.bson.BsonDocumentReader;
 import org.bson.Document;
-import org.bson.codecs.Codec;
 import org.bson.conversions.Bson;
 import org.bson.json.JsonWriterSettings;
 import org.slf4j.Logger;
@@ -21,13 +18,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.BiConsumer;
 
 import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.search.SearchFacet.stringFacet;
 import static com.mongodb.client.model.search.SearchPath.fieldPath;
-import static com.mycodefu.mongodb.atlas.MongoConnection.codecRegistry;
 import static com.mycodefu.mongodb.atlas.MongoConnection.database_name;
 
 public class ImageDataAccess implements AutoCloseable {
@@ -37,13 +32,11 @@ public class ImageDataAccess implements AutoCloseable {
 
     private final MongoClient mongoClient;
     private final MongoCollection<Image> imageCollection;
-    private final MongoCollection<ImageSearchResult> imageCollectionForAggregate;
 
     public ImageDataAccess(MongoClient mongoClient, String databaseName, String collectionName) {
         this.mongoClient = mongoClient;
         MongoDatabase database = mongoClient.getDatabase(databaseName);
         this.imageCollection = database.getCollection(collectionName, Image.class);
-        this.imageCollectionForAggregate = database.getCollection(collectionName, ImageSearchResult.class);
     }
 
     public static ImageDataAccess getInstance() {
@@ -79,7 +72,12 @@ public class ImageDataAccess implements AutoCloseable {
             skip = page * pageSize;
         }
         if (text != null) {
-            clauses.add(SearchOperator.text(fieldPath("caption"), text));
+            clauses.add(SearchOperator
+                    .text(
+                            fieldPath("caption"),
+                            text
+                    )
+            );
         }
         if (hasPerson != null) {
             clauses.add(equals("hasPerson", hasPerson));
@@ -137,14 +135,7 @@ public class ImageDataAccess implements AutoCloseable {
             }
         }
 
-        ArrayList<ImageSearchResult> results = imageCollectionForAggregate.aggregate(aggregateStages).into(new ArrayList<>());
-
-        if (results.isEmpty()) {
-            log.trace("No results from search");
-            return null;
-        }
-
-        ImageSearchResult imageSearchResult = results.getFirst();
+        ImageSearchResult imageSearchResult = imageCollection.aggregate(aggregateStages, ImageSearchResult.class).first();
 
         if (log.isTraceEnabled()) {
             String json = JsonUtil.writeToString(imageSearchResult);
