@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MongoDB Atlas Search Service</title>
+    <script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@material-ui/core@latest/umd/material-ui.development.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
+    <style>
+        body {
+            margin: 0;
+            padding: 16px;
+        }
+
+        .result-image {
+            max-width: 240px;
+            margin-right: 1rem;
+            border-radius: 4px;
+        }
+
+        .result-row {
+            display: flex;
+            padding: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect } = React;
+    const {
+        Typography,
+        Checkbox,
+        Radio,
+        RadioGroup,
+        FormControlLabel,
+        FormControl,
+        TextField,
+        Box,
+        Grid,
+        Button,
+        Chip,
+    } = MaterialUI;
+
+    const FILTER_KEYS = [
+        'animal',
+        'appliance',
+        'electronic',
+        'food',
+        'furniture',
+        'indoor',
+        'kitchen',
+        'outdoor',
+        'sports',
+        'vehicle'
+    ];
+
+    function toTitleCase(value) {
+        return value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    function createEmptyFilterState() {
+        return FILTER_KEYS.reduce((acc, key) => {
+            acc[key] = [];
+            return acc;
+        }, {});
+    }
+
+    function App() {
+        const [query, setQuery] = useState('');
+        const [page, setPage] = useState(0);
+        const [docs, setDocs] = useState([]);
+        const [facet, setFacet] = useState(null);
+        const [total, setTotal] = useState(0);
+        const [filters, setFilters] = useState(createEmptyFilterState());
+        const [optionsByFilter, setOptionsByFilter] = useState(createEmptyFilterState());
+        const [hasPerson, setHasPerson] = useState('any');
+        const [searchError, setSearchError] = useState('');
+
+        // Determine API domain - always use 8222 for localhost dev, empty for production
+        const domain = document.location.host.includes('localhost') ? 'http://localhost:8222' : '';
+
+        useEffect(() => {
+            fetch(`${domain}/categories`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load categories');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const grouped = createEmptyFilterState();
+                    data.forEach(category => {
+                        const key = category.superCategory;
+                        if (FILTER_KEYS.includes(key)) {
+                            grouped[key].push(category.name);
+                        }
+                    });
+                    FILTER_KEYS.forEach(key => {
+                        grouped[key] = Array.from(new Set(grouped[key])).sort();
+                    });
+                    setOptionsByFilter(grouped);
+                })
+                .catch(error => {
+                    setSearchError(error.message || 'Failed to load categories');
+                });
+        }, []);
+
+        useEffect(() => {
+            // Use 'a' as wildcard when search is empty - matches ~103k results
+            const trimmed = query.trim() || 'a';
+
+            const params = new URLSearchParams();
+            params.set('text', trimmed);
+            params.set('page', String(page));
+
+            if (hasPerson === 'true' || hasPerson === 'false') {
+                params.set('hasPerson', hasPerson);
+            }
+
+            FILTER_KEYS.forEach(key => {
+                if (filters[key].length > 0) {
+                    params.set(key, filters[key].join(','));
+                }
+            });
+
+            fetch(`${domain}/image/search?${params.toString()}`)
+                .then(async response => {
+                    if (!response.ok) {
+                        const message = await response.text();
+                        throw new Error(message || `Search failed with status ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const meta = (data.meta && data.meta.length > 0) ? data.meta[0] : null;
+                    setDocs(data.docs || []);
+                    setFacet(meta ? meta.facet : null);
+                    setTotal(meta && meta.count ? meta.count.total : 0);
+                    setSearchError('');
+                })
+                .catch(error => {
+                    setDocs([]);
+                    setFacet(null);
+                    setTotal(0);
+                    setSearchError(error.message || 'Search failed');
+                });
+        }, [query, page, filters, hasPerson]);
+
+        function toggleFilter(key, value, checked) {
+            setPage(0);
+            setFilters(previous => {
+                const existing = previous[key];
+                return {
+                    ...previous,
+                    [key]: checked
+                        ? [...existing, value]
+                        : existing.filter(item => item !== value)
+                };
+            });
+        }
+
+        function facetCount(key, value) {
+            if (!facet || !facet[key] || !facet[key].buckets) {
+                return 0;
+            }
+            const bucket = facet[key].buckets.find(entry => entry._id === value);
+            return bucket ? bucket.count : 0;
+        }
+
+        function totalPages() {
+            return Math.max(1, Math.ceil(total / 5));
+        }
+
+        return (
+            <div tabIndex="0">
+                <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                        <Typography variant="h5" component="h1">
+                            MongoDB Atlas Search Service
+                        </Typography>
+                        <Typography variant="body2" component="p" color="textSecondary">
+                            Search COCO image captions and filter by detected object categories.
+                        </Typography>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <TextField
+                                sx={{ flexGrow: 1, minWidth: 280 }}
+                                label="Caption Search"
+                                value={query}
+                                onChange={event => {
+                                    setPage(0);
+                                    setQuery(event.target.value);
+                                }}
+                            />
+                            <FormControl component="fieldset">
+                                <RadioGroup row value={hasPerson} onChange={event => {
+                                    setPage(0);
+                                    setHasPerson(event.target.value);
+                                }}>
+                                    <FormControlLabel value="any" control={<Radio />} label="Any Person" />
+                                    <FormControlLabel value="true" control={<Radio />} label="Has Person" />
+                                    <FormControlLabel value="false" control={<Radio />} label="No Person" />
+                                </RadioGroup>
+                            </FormControl>
+                        </Box>
+                        <Box sx={{ marginTop: 1 }}>
+                            <Typography color="error">{searchError}</Typography>
+                        </Box>
+                    </Grid>
+
+                    <Grid item xs={12} md={3}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            {FILTER_KEYS.map(key => (
+                                <Box key={key}>
+                                    <Typography color="textSecondary">{toTitleCase(key)}</Typography>
+                                    {optionsByFilter[key].map(value => (
+                                        <FormControl key={`${key}.${value}`}>
+                                            <FormControlLabel
+                                                control={
+                                                    <Checkbox
+                                                        checked={filters[key].includes(value)}
+                                                        onChange={event => toggleFilter(key, value, event.target.checked)}
+                                                        name={`${key}.${value}`}
+                                                    />
+                                                }
+                                                label={`${value} (${facetCount(key, value)})`}
+                                            />
+                                        </FormControl>
+                                    ))}
+                                </Box>
+                            ))}
+                        </Box>
+                    </Grid>
+
+                    <Grid item xs={12} md={9}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
+                            <Typography variant="subtitle1">{`Results: ${total}`}</Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Button variant="outlined" disabled={page === 0} onClick={() => setPage(page - 1)}>
+                                    Previous
+                                </Button>
+                                <Typography variant="body2">{`Page ${page + 1} / ${totalPages()}`}</Typography>
+                                <Button
+                                    variant="outlined"
+                                    disabled={page + 1 >= totalPages()}
+                                    onClick={() => setPage(page + 1)}
+                                >
+                                    Next
+                                </Button>
+                            </Box>
+                        </Box>
+
+                        {docs.map(image => (
+                            <div key={`image.${image._id}`} className="result-row">
+                                <img className="result-image" src={image.url} alt={image.caption} />
+                                <Box>
+                                    <Typography variant="body1">{image.caption}</Typography>
+                                    <Typography variant="body2" color="textSecondary">
+                                        {image.hasPerson ? 'Contains a person' : 'No person detected'}
+                                    </Typography>
+                                    <Box sx={{ marginTop: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                        {FILTER_KEYS.map(key =>
+                                            (image[key] || []).map(value => (
+                                                <Chip key={`${image._id}.${key}.${value}`} size="small" label={`${key}: ${value}`} />
+                                            ))
+                                        )}
+                                    </Box>
+                                </Box>
+                            </div>
+                        ))}
+                    </Grid>
+                </Grid>
+            </div>
+        );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>

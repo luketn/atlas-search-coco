@@ -27,6 +27,14 @@ public class Main {
         }
 
         SimpleServer server = SimpleServer.create(8222)
+                .addGetHandler("/", params -> {
+                    try {
+                        return new String(Main.class.getResourceAsStream("/static/index.html")
+                                .readAllBytes());
+                    } catch (IOException e) {
+                        return "Error loading index.html: " + e.getMessage();
+                    }
+                })
                 .addGetHandler("/categories", params -> {
                     List<Category> categories = CategoryDataAccess.getInstance().list();
                     return JsonUtil.writeToString(categories);

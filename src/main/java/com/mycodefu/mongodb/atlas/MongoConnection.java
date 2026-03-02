@@ -83,7 +83,7 @@ public class MongoConnection {
         if (!indexCreated) {
             throw new RuntimeException("Failed to create Atlas search index %s".formatted(indexName));
         }
-        waitUntil(() -> indexReady(collection, indexName), 300, 100, "Atlas search index not ready");
+        waitUntil(() -> indexReady(collection, indexName), 600, 100, "Atlas search index not ready");
 
         //log time taken to create index with the collection and index name
         Instant end = Instant.now();
@@ -111,7 +111,10 @@ public class MongoConnection {
     private static boolean indexReady(MongoCollection<?> collection, String indexName) {
         ListSearchIndexesIterable<Document> indexDocuments = collection.listSearchIndexes();
         for (Document indexDocument : indexDocuments) {
-            if (indexDocument.getString("name").equals(indexName) && indexDocument.getString("status").equals("READY")) {
+            String name = indexDocument.getString("name");
+            String status = indexDocument.getString("status");
+
+            if (indexName.equals(name) && "READY".equals(status)) {
                 log.debug("Atlas search index READY.");
                 return true;
             }
