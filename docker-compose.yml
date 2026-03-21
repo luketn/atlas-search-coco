@@ -4,8 +4,6 @@ services:
     hostname: mongodbatlas
     ports:
       - "65001:27017"
-    environment:
-      JAVA_TOOL_OPTIONS: "${JAVA_TOOL_OPTIONS}"
 
   java-app:
     image: maven:3.9-amazoncorretto-25-al2023
@@ -19,7 +17,6 @@ services:
     working_dir: /opt/app
     environment:
         CONNECTION_STRING: "mongodb://mongodbatlas/?directConnection=true"
-        JAVA_TOOL_OPTIONS: "${JAVA_TOOL_OPTIONS}"
     command: mvn package --quiet exec:java -Dexec.args="--loadData" -DskipTests
 
 volumes:
