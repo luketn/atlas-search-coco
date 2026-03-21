@@ -1,7 +1,7 @@
 # atlas-search-coco
 A demo project showing how to build a Java based faceted full text search service using the open source Coco dataset.
 
-To get started run the docker compose file in the root of the project:
+This project targets Java 25. To get started run the docker compose file in the root of the project:
 
 ```bash
 JAVA_TOOL_OPTIONS="" docker compose up java-app
