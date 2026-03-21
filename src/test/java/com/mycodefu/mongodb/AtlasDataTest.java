@@ -17,7 +17,7 @@ import java.util.List;
 abstract class AtlasDataTest {
     private static final MongoDBAtlasLocalContainer atlasLocalContainer;
     static {
-        atlasLocalContainer = new MongoDBAtlasLocalContainer("mongodb/mongodb-atlas-local:8.0.3");
+        atlasLocalContainer = new MongoDBAtlasLocalContainer("mongodb/mongodb-atlas-local:8.2.6");
         atlasLocalContainer.start();
         MongoConnection.setConnectionString(atlasLocalContainer.getConnectionString());
 
@@ -32,7 +32,11 @@ abstract class AtlasDataTest {
 
         String atlasSearchMappingsString;
         try {
-            atlasSearchMappingsString = Resources.toString(AtlasDataTest.class.getResource("/atlas-search-index.json"), StandardCharsets.UTF_8);
+            URL resource = AtlasDataTest.class.getResource("/atlas-search-index.json");
+            if (resource == null) {
+                throw new RuntimeException("Resource not found");
+            }
+            atlasSearchMappingsString = Resources.toString(resource, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

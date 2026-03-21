@@ -1,6 +1,6 @@
 services:
   mongodb-atlas:
-    image: mongodb/mongodb-atlas-local:8.0.3
+    image: mongodb/mongodb-atlas-local:8.2.6
     hostname: mongodbatlas
     ports:
       - "65001:27017"
