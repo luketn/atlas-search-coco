@@ -85,7 +85,13 @@ public class ImageDataAccess implements AutoCloseable {
         BiConsumer<String, List<String>> addConditional = (String category, List<String> values) -> {
             if (values != null) {
                 for (String value : values) {
-                    clauses.add(equals(category, value));
+                    // convert any characters that were http serialised
+                    String realValue = value
+                            .replaceAll("%2C", ",")
+                            .replaceAll("%20", " ")
+                            .replaceAll("\\+", " ")
+                    ;
+                    clauses.add(equals(category, realValue));
                 }
             }
         };
