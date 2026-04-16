@@ -34,6 +34,9 @@ const dataset = new SharedArray('search dataset', () => {
 const successfulChecks = new Rate('search_checks');
 const searchRequests = new Counter('search_requests');
 const searchDocsReturned = new Trend('search_docs_returned');
+const searchMongoTime = new Trend('search_mongodb_time_ms');
+const searchJavaTime = new Trend('search_java_non_mongo_time_ms');
+const searchHttpTime = new Trend('search_http_time_ms');
 
 export const options = {
   scenarios: {
@@ -71,6 +74,7 @@ export default function () {
   });
 
   searchRequests.add(1);
+  searchHttpTime.add(response.timings.duration);
 
   let body;
   try {
@@ -81,11 +85,24 @@ export default function () {
 
   searchDocsReturned.add(body !== null && Array.isArray(body.docs) ? body.docs.length : 0);
 
+  const stats = body !== null && typeof body === 'object' ? body.stats : null;
+  if (stats !== null && Number.isFinite(stats.totalTimeMs)) {
+    searchMongoTime.add(stats.totalTimeMs);
+  }
+  if (
+    stats !== null &&
+    Number.isFinite(stats.totalJavaTimeMs) &&
+    Number.isFinite(stats.totalTimeMs)
+  ) {
+    searchJavaTime.add(Math.max(0, stats.totalJavaTimeMs - stats.totalTimeMs));
+  }
+
   const ok = check(response, {
     'status is 200': (res) => res.status === 200,
     'response is json': (res) => (res.headers['Content-Type'] || '').includes('application/json'),
     'docs is an array': () => body !== null && Array.isArray(body.docs),
     'meta is an array': () => body !== null && Array.isArray(body.meta),
+    'stats has java timing when present': () => stats === null || !Number.isFinite(stats.totalTimeMs) || Number.isFinite(stats.totalJavaTimeMs),
   });
 
   successfulChecks.add(ok);

@@ -2,7 +2,15 @@ package com.mycodefu.model;
 
 import java.util.List;
 
-public record ImageSearchResult(List<Image> docs, List<ImageMeta> meta) {
+public record ImageSearchResult(List<Image> docs, List<ImageMeta> meta, QueryStats stats) {
+    public ImageSearchResult(List<Image> docs, List<ImageMeta> meta) {
+        this(docs, meta, null);
+    }
+
+    public ImageSearchResult withStats(QueryStats stats) {
+        return new ImageSearchResult(docs, meta, stats);
+    }
+
     public record ImageMeta (ImageMetaTotal count, ImageMetaFacets facet) { }
     public record ImageMetaTotal (long total) { }
     public record ImageMetaFacets (

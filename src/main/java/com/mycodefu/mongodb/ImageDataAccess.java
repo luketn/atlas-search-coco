@@ -1,5 +1,7 @@
 package com.mycodefu.mongodb;
 
+import com.mongodb.client.AggregateIterable;
+import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
@@ -9,7 +11,9 @@ import com.mongodb.client.model.search.*;
 import com.mycodefu.datapreparation.util.JsonUtil;
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
+import com.mycodefu.model.QueryStats;
 import com.mycodefu.mongodb.atlas.MongoConnection;
+import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.json.JsonWriterSettings;
@@ -141,7 +145,28 @@ public class ImageDataAccess implements AutoCloseable {
             }
         }
 
-        ImageSearchResult imageSearchResult = imageCollection.aggregate(aggregateStages, ImageSearchResult.class).first();
+        AggregateIterable<ImageSearchResult> aggregateCursor = imageCollection.aggregate(aggregateStages, ImageSearchResult.class);
+        String traceId = null;
+        if (MongoConnectionTracing.isTracingEnabled()) {
+            traceId = MongoConnectionTracing.newTraceId();
+            aggregateCursor.comment(MongoConnectionTracing.toTraceComment(traceId));
+        }
+
+        ImageSearchResult aggregateResult;
+        QueryStats stats = null;
+        try (MongoCursor<ImageSearchResult> cursor = aggregateCursor.cursor()) {
+            if (traceId != null) {
+                MongoConnectionTracing.registerCursorTrace(cursor, traceId);
+            }
+            aggregateResult = cursor.tryNext();
+            if (traceId != null) {
+                stats = MongoConnectionTracing.getQueryStats(cursor);
+            }
+        }
+
+        ImageSearchResult imageSearchResult = aggregateResult == null
+                ? null
+                : aggregateResult.withStats(stats);
 
         if (log.isTraceEnabled()) {
             String json = JsonUtil.writeToString(imageSearchResult);

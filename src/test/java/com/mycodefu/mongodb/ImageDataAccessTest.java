@@ -2,6 +2,7 @@ package com.mycodefu.mongodb;
 
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
+import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
 import org.junit.Test;
 
 import java.util.Date;
@@ -179,5 +180,46 @@ public class ImageDataAccessTest extends AtlasDataTest {
         );
         assertNotNull(searchResultPage3);
         assertEquals(3, searchResultPage3.docs().size());
+    }
+
+    @Test
+    public void search_includes_stats_when_command_tracing_enabled() {
+        System.setProperty(MongoConnectionTracing.TRACE_COMMANDS_PROPERTY, "true");
+        try {
+            ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+            ImageSearchResult searchResult = imageDataAccess.search("statue", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null);
+
+            assertNotNull(searchResult);
+            assertNotNull(searchResult.stats());
+            assertNotNull(searchResult.stats().traceId());
+            assertFalse(searchResult.stats().operations().isEmpty());
+            assertTrue(searchResult.stats().totalTimeMs() > 0.0);
+            assertTrue(searchResult.stats().operations().stream().anyMatch(operation -> "aggregate".equals(operation.commandName())));
+            assertEquals(
+                    searchResult.stats().operations().stream().mapToDouble(operation -> operation.timeMs()).sum(),
+                    searchResult.stats().totalTimeMs(),
+                    0.0001
+            );
+        } finally {
+            System.clearProperty(MongoConnectionTracing.TRACE_COMMANDS_PROPERTY);
+        }
+    }
+
+    @Test
+    public void run_with_traces_returns_identifiable_commands_for_the_run() {
+        System.setProperty(MongoConnectionTracing.TRACE_COMMANDS_PROPERTY, "true");
+        try {
+            ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+            List<MongoConnectionTracing.CommandTrace> traces = MongoConnectionTracing.runWithTraces(
+                    () -> imageDataAccess.search("statue", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null)
+            );
+
+            assertFalse(traces.isEmpty());
+            assertTrue(traces.stream().allMatch(trace -> trace.requestId() >= 0));
+            assertTrue(traces.stream().allMatch(trace -> trace.durationMs() >= 0.0));
+            assertTrue(traces.stream().anyMatch(trace -> "aggregate".equals(trace.commandName()) && trace.traceId() != null));
+        } finally {
+            System.clearProperty(MongoConnectionTracing.TRACE_COMMANDS_PROPERTY);
+        }
     }
 }

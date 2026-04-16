@@ -28,10 +28,10 @@ public class MongoConnection {
 
     public static final String database_name = System.getenv("DATABASE_NAME") != null ? System.getenv("DATABASE_NAME") : "atlasSearchCoco";
     public static final String index_name = System.getenv("INDEX_NAME") != null ? System.getenv("INDEX_NAME") : "default";
-    private static String connection_string = System.getenv("CONNECTION_STRING") != null ? System.getenv("CONNECTION_STRING") : "mongodb://localhost:27017/directConnection=true";
-    public static CodecRegistry codecRegistry = getCodecRegistry();
 
+    private static String connection_string = System.getenv("CONNECTION_STRING") != null ? System.getenv("CONNECTION_STRING") : "mongodb://localhost:27017/directConnection=true";
     private static MongoClient mongo_client = null;
+
     public static CodecRegistry getCodecRegistry() {
         CodecProvider pojoCodecProvider = PojoCodecProvider.builder()
                 .automatic(true)
@@ -50,6 +50,7 @@ public class MongoConnection {
             MongoClientSettings clientSettings = MongoClientSettings.builder()
                     .codecRegistry(getCodecRegistry())
                     .applyConnectionString(new ConnectionString(connection_string))
+                    .addCommandListener(MongoConnectionTracing.commandListener())
                     .build();
             mongo_client = MongoClients.create(clientSettings);
 
