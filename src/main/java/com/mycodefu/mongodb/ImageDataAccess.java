@@ -5,6 +5,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.MongoCommandException;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Facet;
 import com.mongodb.client.model.search.SearchCollector;
@@ -119,13 +120,19 @@ public class ImageDataAccess implements AutoCloseable {
     }
 
     public boolean hasVectorSearchIndex() {
-        for (Document indexDocument : imageDocumentCollection.listSearchIndexes()) {
-            if (MongoConnection.vector_index_name.equals(indexDocument.getString("name"))
-                    && "READY".equals(indexDocument.getString("status"))) {
-                return true;
+        try {
+            for (Document indexDocument : imageDocumentCollection.listSearchIndexes()) {
+                if (MongoConnection.vector_index_name.equals(indexDocument.getString("name"))
+                        && "READY".equals(indexDocument.getString("status"))) {
+                    return true;
+                }
             }
+            return false;
+        } catch (MongoCommandException e) {
+            log.warn("Search index management service unavailable while detecting vector search index. " +
+                    "Starting with vector search disabled.", e);
+            return false;
         }
-        return false;
     }
 
     public ImageSearchResult search(
