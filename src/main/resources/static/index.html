@@ -430,7 +430,10 @@
         const domain = document.location.host.includes('localhost') ? 'http://localhost:8222' : '';
         const currentPageDocs = pageDocs[page] || [];
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-        const activeSearchTypes = getActiveSearchTypes(searchTypeSelection, vectorSearchEnabled);
+        const activeSearchTypes = useMemo(
+            () => getActiveSearchTypes(searchTypeSelection, vectorSearchEnabled),
+            [searchTypeSelection, vectorSearchEnabled]
+        );
         const searchPlaceholder = getSearchPlaceholder(searchTypeSelection, vectorSearchEnabled);
 
         useEffect(() => {
