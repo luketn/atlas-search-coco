@@ -31,26 +31,33 @@ K6_WEB_DASHBOARD=false K6_DURATION=10s K6_VUS=20 INCLUDE_LICENSE=true \
 
 | Metric | `includeLicense=false` | `includeLicense=true` | Difference |
 | --- | ---: | ---: | ---: |
-| Average HTTP duration | 15.262 ms | 15.168 ms | -0.094 ms (-0.61%) |
-| P95 HTTP duration | 21.057 ms | 21.487 ms | +0.430 ms (+2.04%) |
-| Request rate | 1292.29 req/s | 1301.35 req/s | +9.05 req/s (+0.70%) |
-| Iterations completed | 12,949 | 13,034 | +85 (+0.66%) |
-| Average docs returned | 8.311 | 8.305 | -0.006 (-0.08%) |
-| Data received | 67.48 MiB | 81.19 MiB | +13.71 MiB (+20.32%) |
+| Average HTTP duration | 19.214 ms | 23.958 ms | +4.744 ms (+24.69%) |
+| P95 HTTP duration | 25.690 ms | 31.459 ms | +5.769 ms (+22.46%) |
+| Average MongoDB query time | 9.040 ms | 11.093 ms | +2.053 ms (+22.71%) |
+| P95 MongoDB query time | 13.418 ms | 16.296 ms | +2.877 ms (+21.44%) |
+| Average Java non-Mongo time | 0.638 ms | 1.024 ms | +0.386 ms (+60.57%) |
+| P95 Java non-Mongo time | 0.978 ms | 1.352 ms | +0.374 ms (+38.27%) |
+| Request rate | 1017.35 req/s | 816.68 req/s | -200.67 req/s (-19.73%) |
+| Iterations completed | 10,194 | 8,196 | -1,998 (-19.60%) |
+| Average docs returned | 8.312 | 8.332 | +0.020 (+0.24%) |
+| Total data received | 56.32 MiB | 53.65 MiB | -2.67 MiB (-4.75%) |
+| Data received per request | 5.657 KiB | 6.703 KiB | +1.045 KiB (+18.47%) |
 | HTTP failure rate | 0.00% | 0.00% | no change |
 
 ## Interpretation
 
-The main effect of `includeLicense=true` in this run was payload size rather than a clear latency or throughput regression.
+In this run, `includeLicense=true` showed a clear latency and throughput regression relative to the baseline.
 
 Observed impact:
 
-- average latency was effectively flat in this sample (`-0.61%`, which is within normal run-to-run noise)
-- p95 latency was slightly higher (`+2.04%`)
-- throughput was effectively flat to slightly higher (`+0.70%`)
-- response payload increased materially (`+20.32%`) because license fields were included
+- average latency increased by `24.69%`
+- p95 latency increased by `22.46%`
+- throughput dropped by `19.73%`
+- iterations completed dropped by `19.60%`
+- per-request payload increased by `18.47%` because license fields were included
+- total data received during the run was lower only because the slower run completed fewer requests
 
-The benchmark stayed error-free in both modes, so the practical tradeoff in this run was richer result documents and larger payloads, with no strong evidence of a meaningful throughput penalty from the implicit lookup path.
+The benchmark stayed error-free in both modes, but this sample does show a meaningful cost from the `includeLicense=true` path. The additional license projection increased payload size per response and coincided with higher end-to-end latency and lower throughput, which is consistent with the extra lookup/projection work happening before results are returned.
 
 ## Files
 
