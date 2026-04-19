@@ -24,7 +24,7 @@ import static com.mycodefu.datapreparation.PrepareDataEntryPoint.downloadAndInit
 public class Main {
     private static final Pattern totalJavaTimePattern = Pattern.compile("(\"totalJavaTimeMs\"\\s*:\\s*)(-?\\d+(?:\\.\\d+)?)");
 
-    public static void main(String[] args) throws IOException {
+    static void main(String[] args) throws IOException {
         if (args.length > 0) {
             switch (args[0]) {
                 case "--loadData" -> downloadAndInitialiseDataset(false);
@@ -40,17 +40,20 @@ public class Main {
 
         SearchCapabilities searchCapabilities = new SearchCapabilities(vectorSearchEnabledAtStartup);
 
+        CategoryDataAccess categoryDataAccess = CategoryDataAccess.getInstance();
+        ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+
         SimpleServer server = SimpleServer.create(8222)
-                .addGetHandler("/", params -> {
+                .addGetHandler("/", _ -> {
                     try {
                         return new String(Main.class.getResourceAsStream("/static/index.html").readAllBytes());
                     } catch (IOException e) {
                         return "Error loading index.html: " + e.getMessage();
                     }
                 })
-                .addGetHandler("/capabilities", params -> JsonUtil.writeToString(searchCapabilities))
-                .addGetHandler("/categories", params -> {
-                    List<Category> categories = CategoryDataAccess.getInstance().list();
+                .addGetHandler("/capabilities", _ -> JsonUtil.writeToString(searchCapabilities))
+                .addGetHandler("/categories", _ -> {
+                    List<Category> categories = categoryDataAccess.list();
                     return JsonUtil.writeToString(categories);
                 })
                 .addGetHandler("/image", params -> {
@@ -58,7 +61,7 @@ public class Main {
                     if (id == null) {
                         return "Please provide an id parameter";
                     }
-                    Image image = ImageDataAccess.getInstance().get(Integer.parseInt(id));
+                    Image image = imageDataAccess.get(Integer.parseInt(id));
                     return JsonUtil.writeToString(image);
                 })
                 .addGetHandler("/image/search", params -> {
@@ -75,29 +78,27 @@ public class Main {
                             : 0;
                     boolean includeLicense = Boolean.parseBoolean(firstParam(params, "includeLicense"));
 
-                    try (ImageDataAccess imageDataAccess = ImageDataAccess.getInstance()) {
-                        SearchRequest request = SearchRequest.of(
-                                text,
-                                searchType,
-                                page,
-                                new SearchFilters(
-                                        booleanParam(params, "hasPerson"),
-                                        listParam(params, "animal"),
-                                        listParam(params, "appliance"),
-                                        listParam(params, "electronic"),
-                                        listParam(params, "food"),
-                                        listParam(params, "furniture"),
-                                        listParam(params, "indoor"),
-                                        listParam(params, "kitchen"),
-                                        listParam(params, "outdoor"),
-                                        listParam(params, "sports"),
-                                        listParam(params, "vehicle")
-                                ),
-                                includeLicense
-                        );
-                        ImageSearchResult result = imageDataAccess.search(request);
-                        return writeSearchResult(result, javaStartedAtNanos);
-                    }
+                    SearchRequest request = SearchRequest.of(
+                            text,
+                            searchType,
+                            page,
+                            new SearchFilters(
+                                    booleanParam(params, "hasPerson"),
+                                    listParam(params, "animal"),
+                                    listParam(params, "appliance"),
+                                    listParam(params, "electronic"),
+                                    listParam(params, "food"),
+                                    listParam(params, "furniture"),
+                                    listParam(params, "indoor"),
+                                    listParam(params, "kitchen"),
+                                    listParam(params, "outdoor"),
+                                    listParam(params, "sports"),
+                                    listParam(params, "vehicle")
+                            ),
+                            includeLicense
+                    );
+                    ImageSearchResult result = imageDataAccess.search(request);
+                    return writeSearchResult(result, javaStartedAtNanos);
                 })
                 .build();
 
