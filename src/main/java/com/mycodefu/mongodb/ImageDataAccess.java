@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 import static com.mongodb.client.model.Filters.eq;
 import static com.mycodefu.mongodb.atlas.MongoConnection.database_name;
@@ -103,8 +104,7 @@ public class ImageDataAccess implements AutoCloseable {
 
     private ImageSearchResult executeVectorSearch(SearchRequest request) {
         VectorQueryPlan vectorQueryPlan = createVectorQueryPlan(request);
-        List<Bson> aggregateStages = new ArrayList<>(SearchPipelines.vectorPipeline(vectorQueryPlan, request));
-        aggregateStages.add(new Document("$project", com.mycodefu.mongodb.search.SearchProjection.imageProjection(request.includeLicense(), false)));
+        List<Bson> aggregateStages = SearchPipelines.vectorPipeline(vectorQueryPlan, request, false);
         return aggregateRankedSearchResult(aggregateStages, request.page() * SearchPipelines.pageSize());
     }
 
@@ -114,7 +114,7 @@ public class ImageDataAccess implements AutoCloseable {
         int textResultLimit = (int) Math.min(Integer.MAX_VALUE - 1L, Math.max(1L, vectorQueryPlan.filteredDocumentCount()));
 
         List<Image> textResults = loadRankedImages(SearchPipelines.textRankingPipeline(request, textResultLimit));
-        List<Image> vectorResults = loadRankedImages(SearchPipelines.vectorPipeline(vectorQueryPlan, request));
+        List<Image> vectorResults = loadRankedImages(SearchPipelines.vectorPipeline(vectorQueryPlan, request, true));
         List<Image> rankedImages = HybridRanker.fuse(textResults, vectorResults);
         return buildRankedSearchResult(rankedImages, skip, null);
     }
@@ -126,27 +126,15 @@ public class ImageDataAccess implements AutoCloseable {
     }
 
     private ImageSearchResult aggregateSearchResult(AggregateIterable<ImageSearchResult> aggregateCursor, List<? extends Bson> aggregateStages) {
-        tracePipeline(aggregateStages);
+        AggregateExecutionResult<ImageSearchResult> executionResult = executeAggregate(
+                aggregateCursor,
+                aggregateStages,
+                MongoCursor::tryNext,
+                true
+        );
 
-        String traceId = null;
-        if (MongoConnectionTracing.isTracingEnabled()) {
-            traceId = MongoConnectionTracing.newTraceId();
-            aggregateCursor.comment(MongoConnectionTracing.toTraceComment(traceId));
-        }
-
-        ImageSearchResult aggregateResult;
-        QueryStats stats = null;
-        try (MongoCursor<ImageSearchResult> cursor = aggregateCursor.cursor()) {
-            if (traceId != null) {
-                MongoConnectionTracing.registerCursorTrace(cursor, traceId);
-            }
-            aggregateResult = cursor.tryNext();
-            if (traceId != null) {
-                stats = MongoConnectionTracing.getQueryStats(cursor);
-            }
-        }
-
-        ImageSearchResult imageSearchResult = aggregateResult == null ? null : aggregateResult.withStats(stats);
+        ImageSearchResult aggregateResult = executionResult.value();
+        ImageSearchResult imageSearchResult = aggregateResult == null ? null : aggregateResult.withStats(executionResult.stats());
         if (log.isDebugEnabled()) {
             log.debug(JsonUtil.writeToString(imageSearchResult));
         }
@@ -158,29 +146,52 @@ public class ImageDataAccess implements AutoCloseable {
     }
 
     private List<Image> loadRankedImages(List<? extends Bson> aggregateStages) {
+        AggregateExecutionResult<List<Image>> executionResult = executeAggregate(
+                imageDocumentCollection.aggregate(aggregateStages, Image.class),
+                aggregateStages,
+                cursor -> {
+                    ArrayList<Image> rankedImages = new ArrayList<>();
+                    while (cursor.hasNext()) {
+                        rankedImages.add(cursor.next());
+                    }
+                    return rankedImages;
+                },
+                false
+        );
+        List<Image> rankedImages = executionResult.value();
+
+        if (log.isTraceEnabled()) {
+            log.trace(JsonUtil.writeToString(rankedImages));
+        }
+        return rankedImages;
+    }
+
+    private <T, R> AggregateExecutionResult<R> executeAggregate(
+            AggregateIterable<T> aggregateCursor,
+            List<? extends Bson> aggregateStages,
+            Function<MongoCursor<T>, R> reader,
+            boolean collectStats
+    ) {
         tracePipeline(aggregateStages);
 
-        AggregateIterable<Image> aggregateCursor = imageDocumentCollection.aggregate(aggregateStages, Image.class);
         String traceId = null;
         if (MongoConnectionTracing.isTracingEnabled()) {
             traceId = MongoConnectionTracing.newTraceId();
             aggregateCursor.comment(MongoConnectionTracing.toTraceComment(traceId));
         }
 
-        ArrayList<Image> rankedImages = new ArrayList<>();
-        try (MongoCursor<Image> cursor = aggregateCursor.cursor()) {
+        QueryStats stats = null;
+        R value;
+        try (MongoCursor<T> cursor = aggregateCursor.cursor()) {
             if (traceId != null) {
                 MongoConnectionTracing.registerCursorTrace(cursor, traceId);
             }
-            while (cursor.hasNext()) {
-                rankedImages.add(cursor.next());
+            value = reader.apply(cursor);
+            if (collectStats && traceId != null) {
+                stats = MongoConnectionTracing.getQueryStats(cursor);
             }
         }
-
-        if (log.isTraceEnabled()) {
-            log.trace(JsonUtil.writeToString(rankedImages));
-        }
-        return rankedImages;
+        return new AggregateExecutionResult<>(value, stats);
     }
 
     private void tracePipeline(List<? extends Bson> aggregateStages) {
@@ -206,5 +217,8 @@ public class ImageDataAccess implements AutoCloseable {
     @Override
     public void close() {
         // MongoConnection manages the shared client lifecycle for the app.
+    }
+
+    private record AggregateExecutionResult<T>(T value, QueryStats stats) {
     }
 }

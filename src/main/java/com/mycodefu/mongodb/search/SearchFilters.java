@@ -4,10 +4,9 @@ import com.mongodb.client.model.search.SearchOperator;
 import org.bson.Document;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
 
 public record SearchFilters(
         Boolean hasPerson,
@@ -40,34 +39,11 @@ public record SearchFilters(
     }
 
     public List<SearchOperator> toSearchClauses() {
-        ArrayList<SearchOperator> clauses = new ArrayList<>();
-        if (hasPerson != null) {
-            clauses.add(equalsClause("hasPerson", hasPerson));
-        }
-        for (Map.Entry<String, List<String>> entry : categories().entrySet()) {
-            if (entry.getValue() == null) {
-                continue;
-            }
-            for (String value : entry.getValue()) {
-                clauses.add(equalsClause(entry.getKey(), value));
-            }
-        }
-        return clauses;
+        return buildClauses(SearchFilters::equalsClause);
     }
 
     public Document toVectorFilterDocument() {
-        ArrayList<Document> clauses = new ArrayList<>();
-        if (hasPerson != null) {
-            clauses.add(new Document("hasPerson", hasPerson));
-        }
-        for (Map.Entry<String, List<String>> entry : categories().entrySet()) {
-            if (entry.getValue() == null) {
-                continue;
-            }
-            for (String value : entry.getValue()) {
-                clauses.add(new Document(entry.getKey(), value));
-            }
-        }
+        ArrayList<Document> clauses = buildClauses(Document::new);
         if (clauses.isEmpty()) {
             return new Document();
         }
@@ -77,19 +53,21 @@ public record SearchFilters(
         return new Document("$and", clauses);
     }
 
-    private Map<String, List<String>> categories() {
-        LinkedHashMap<String, List<String>> categories = new LinkedHashMap<>();
-        categories.put("animal", animal);
-        categories.put("appliance", appliance);
-        categories.put("electronic", electronic);
-        categories.put("food", food);
-        categories.put("furniture", furniture);
-        categories.put("indoor", indoor);
-        categories.put("kitchen", kitchen);
-        categories.put("outdoor", outdoor);
-        categories.put("sports", sports);
-        categories.put("vehicle", vehicle);
-        return categories;
+    private <T> ArrayList<T> buildClauses(BiFunction<String, Object, T> clauseFactory) {
+        ArrayList<T> clauses = new ArrayList<>();
+        if (hasPerson != null) {
+            clauses.add(clauseFactory.apply("hasPerson", hasPerson));
+        }
+        for (SearchCategory category : SearchCategory.filterable()) {
+            List<String> values = category.filterValues(this);
+            if (values == null) {
+                continue;
+            }
+            for (String value : values) {
+                clauses.add(clauseFactory.apply(category.fieldName(), value));
+            }
+        }
+        return clauses;
     }
 
     private static SearchOperator equalsClause(String fieldName, Object value) {

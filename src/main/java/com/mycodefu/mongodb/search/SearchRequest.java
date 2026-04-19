@@ -34,7 +34,7 @@ public record SearchRequest(
     ) {
         return new SearchRequest(
                 text,
-                searchTypes == null || searchTypes.isEmpty() ? EnumSet.of(SearchType.Text) : EnumSet.copyOf(searchTypes),
+                searchTypes == null ? null : EnumSet.copyOf(searchTypes),
                 page == null ? 0 : page,
                 filters,
                 vectorScoreCutoff == null ? DEFAULT_VECTOR_SCORE_CUTOFF : vectorScoreCutoff,

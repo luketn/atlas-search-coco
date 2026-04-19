@@ -32,20 +32,25 @@ public final class HybridRanker {
     }
 
     public static ImageSearchResult.ImageMeta buildMeta(List<Image> rankedImages) {
+        Map<SearchCategory, ImageSearchResult.ImageMetaFacet> facetByCategory = new LinkedHashMap<>();
+        for (SearchCategory category : SearchCategory.filterable()) {
+            facetByCategory.put(category, facetBuckets(rankedImages, category));
+        }
+
         return new ImageSearchResult.ImageMeta(
                 new ImageSearchResult.ImageMetaTotal(rankedImages.size()),
                 new ImageSearchResult.ImageMetaFacets(
                         new ImageSearchResult.ImageMetaFacet(List.of()),
-                        facetBuckets(rankedImages, "animal"),
-                        facetBuckets(rankedImages, "appliance"),
-                        facetBuckets(rankedImages, "electronic"),
-                        facetBuckets(rankedImages, "food"),
-                        facetBuckets(rankedImages, "furniture"),
-                        facetBuckets(rankedImages, "indoor"),
-                        facetBuckets(rankedImages, "kitchen"),
-                        facetBuckets(rankedImages, "outdoor"),
-                        facetBuckets(rankedImages, "sports"),
-                        facetBuckets(rankedImages, "vehicle")
+                        facetByCategory.get(SearchCategory.ANIMAL),
+                        facetByCategory.get(SearchCategory.APPLIANCE),
+                        facetByCategory.get(SearchCategory.ELECTRONIC),
+                        facetByCategory.get(SearchCategory.FOOD),
+                        facetByCategory.get(SearchCategory.FURNITURE),
+                        facetByCategory.get(SearchCategory.INDOOR),
+                        facetByCategory.get(SearchCategory.KITCHEN),
+                        facetByCategory.get(SearchCategory.OUTDOOR),
+                        facetByCategory.get(SearchCategory.SPORTS),
+                        facetByCategory.get(SearchCategory.VEHICLE)
                 )
         );
     }
@@ -58,10 +63,10 @@ public final class HybridRanker {
         }
     }
 
-    private static ImageSearchResult.ImageMetaFacet facetBuckets(List<Image> rankedImages, String facetName) {
+    private static ImageSearchResult.ImageMetaFacet facetBuckets(List<Image> rankedImages, SearchCategory category) {
         HashMap<String, Long> counts = new HashMap<>();
         for (Image image : rankedImages) {
-            List<String> values = facetValues(image, facetName);
+            List<String> values = category.imageValues(image);
             if (values == null) {
                 continue;
             }
@@ -77,21 +82,5 @@ public final class HybridRanker {
                 .map(entry -> new ImageSearchResult.ImageMetaFacetBucket(entry.getKey(), entry.getValue()))
                 .toList();
         return new ImageSearchResult.ImageMetaFacet(buckets);
-    }
-
-    private static List<String> facetValues(Image image, String facetName) {
-        return switch (facetName) {
-            case "animal" -> image.animal();
-            case "appliance" -> image.appliance();
-            case "electronic" -> image.electronic();
-            case "food" -> image.food();
-            case "furniture" -> image.furniture();
-            case "indoor" -> image.indoor();
-            case "kitchen" -> image.kitchen();
-            case "outdoor" -> image.outdoor();
-            case "sports" -> image.sports();
-            case "vehicle" -> image.vehicle();
-            default -> null;
-        };
     }
 }

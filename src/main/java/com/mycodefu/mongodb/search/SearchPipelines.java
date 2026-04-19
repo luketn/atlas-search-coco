@@ -18,18 +18,6 @@ import static com.mongodb.client.model.search.SearchPath.fieldPath;
 
 public final class SearchPipelines {
     private static final int PAGE_SIZE = 10;
-    private static final List<String> FACET_FIELDS = List.of(
-            "animal",
-            "appliance",
-            "electronic",
-            "food",
-            "furniture",
-            "indoor",
-            "kitchen",
-            "outdoor",
-            "sports",
-            "vehicle"
-    );
 
     private SearchPipelines() {
     }
@@ -44,7 +32,7 @@ public final class SearchPipelines {
                 Aggregates.skip(skip),
                 Aggregates.limit(PAGE_SIZE),
                 Aggregates.facet(
-                        new Facet("docs", List.of(new Document("$project", SearchProjection.imageProjection(request.includeLicense(), false)))),
+                        new Facet("docs", List.of(SearchProjection.projectStage(request.includeLicense(), false))),
                         new Facet("meta", List.of(
                                 Aggregates.replaceWith("$$SEARCH_META"),
                                 Aggregates.limit(1)
@@ -60,18 +48,18 @@ public final class SearchPipelines {
                         searchOptions(request).index(MongoConnection.index_name)
                 ),
                 Aggregates.limit(limit),
-                new Document("$project", SearchProjection.imageProjection(request.includeLicense(), false))
+                SearchProjection.projectStage(request.includeLicense(), false)
         );
     }
 
-    public static List<Bson> vectorPipeline(VectorQueryPlan vectorQueryPlan, SearchRequest request) {
+    public static List<Bson> vectorPipeline(VectorQueryPlan vectorQueryPlan, SearchRequest request, boolean includeHybridScore) {
         ArrayList<Bson> pipeline = new ArrayList<>();
         pipeline.add(vectorSearchStage(vectorQueryPlan, request));
-        pipeline.add(scoreProjection("vectorSearchScore", request.includeLicense()));
+        pipeline.add(SearchProjection.scoreProjectionStage("vectorSearchScore", request.includeLicense()));
         pipeline.add(scoreCutoffMatchStage(request.vectorScoreCutoff()));
         pipeline.add(rankStage());
         pipeline.add(hybridScoreStage());
-        pipeline.add(new Document("$project", SearchProjection.imageProjection(request.includeLicense(), true)));
+        pipeline.add(SearchProjection.projectStage(request.includeLicense(), includeHybridScore));
         return pipeline;
     }
 
@@ -119,12 +107,6 @@ public final class SearchPipelines {
         return new Document("$vectorSearch", vectorStage);
     }
 
-    private static Document scoreProjection(String scoreMetaField, boolean includeLicense) {
-        Document projection = SearchProjection.imageProjection(includeLicense, false);
-        projection.append("_rawScore", new Document("$meta", scoreMetaField));
-        return new Document("$project", projection);
-    }
-
     private static Document scoreCutoffMatchStage(double vectorScoreCutoff) {
         return new Document("$match", new Document("_rawScore", new Document("$gte", vectorScoreCutoff)));
     }
@@ -140,8 +122,8 @@ public final class SearchPipelines {
     }
 
     private static List<com.mongodb.client.model.search.SearchFacet> facetCollectors() {
-        return FACET_FIELDS.stream()
-                .map(field -> stringFacet(field, fieldPath(field)).numBuckets(10))
+        return SearchCategory.filterable().stream()
+                .map(category -> stringFacet(category.fieldName(), fieldPath(category.fieldName())).numBuckets(10))
                 .map(facet -> (com.mongodb.client.model.search.SearchFacet) facet)
                 .toList();
     }
