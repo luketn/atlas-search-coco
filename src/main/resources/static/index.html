@@ -334,6 +334,7 @@
         FormControlLabel,
         FormControl,
         TextField,
+        Slider,
         Box,
         Grid,
         Button,
@@ -354,6 +355,9 @@
         'vehicle'
     ];
     const PAGE_SIZE = 10;
+    const DEFAULT_VECTOR_CUTOFF = 0.88;
+    const SEARCH_TYPE_STORAGE_KEY = 'atlasCoco.searchTypeSelection';
+    const VECTOR_CUTOFF_STORAGE_KEY = 'atlasCoco.vectorCutoff';
 
     function toTitleCase(value) {
         return value.charAt(0).toUpperCase() + value.slice(1);
@@ -366,12 +370,15 @@
         }, {});
     }
 
-    function buildSearchParams({ query, page, searchTypes, hasPerson, filters }) {
+    function buildSearchParams({ query, page, searchTypes, hasPerson, filters, vectorCutoff }) {
         const params = new URLSearchParams();
         params.set('text', query.trim() || 'a');
         params.set('page', String(page));
 
         searchTypes.forEach(searchType => params.append('searchType', searchType));
+        if (searchTypes.includes('Vector')) {
+            params.set('vectorCutoff', vectorCutoff.toFixed(2));
+        }
 
         if (hasPerson === 'true' || hasPerson === 'false') {
             params.set('hasPerson', hasPerson);
@@ -409,6 +416,19 @@
         return 'Search with combined text and vector ranking';
     }
 
+    function readStoredSearchType() {
+        const storedValue = window.localStorage.getItem(SEARCH_TYPE_STORAGE_KEY);
+        return ['Text', 'Vector', 'Both'].includes(storedValue) ? storedValue : 'Text';
+    }
+
+    function readStoredVectorCutoff() {
+        const storedValue = Number.parseFloat(window.localStorage.getItem(VECTOR_CUTOFF_STORAGE_KEY) || '');
+        if (Number.isNaN(storedValue)) {
+            return DEFAULT_VECTOR_CUTOFF;
+        }
+        return Math.min(1, Math.max(0, storedValue));
+    }
+
     function App() {
         const [query, setQuery] = useState('');
         const [page, setPage] = useState(0);
@@ -418,7 +438,8 @@
         const [filters, setFilters] = useState(createEmptyFilterState());
         const [optionsByFilter, setOptionsByFilter] = useState(createEmptyFilterState());
         const [hasPerson, setHasPerson] = useState('any');
-        const [searchTypeSelection, setSearchTypeSelection] = useState('Text');
+        const [searchTypeSelection, setSearchTypeSelection] = useState(readStoredSearchType);
+        const [vectorCutoff, setVectorCutoff] = useState(readStoredVectorCutoff);
         const [vectorSearchEnabled, setVectorSearchEnabled] = useState(false);
         const [searchError, setSearchError] = useState('');
         const [loadingPage, setLoadingPage] = useState(false);
@@ -485,10 +506,19 @@
         }, [vectorSearchEnabled, searchTypeSelection]);
 
         useEffect(() => {
+            window.localStorage.setItem(SEARCH_TYPE_STORAGE_KEY, searchTypeSelection);
+        }, [searchTypeSelection]);
+
+        useEffect(() => {
+            window.localStorage.setItem(VECTOR_CUTOFF_STORAGE_KEY, vectorCutoff.toFixed(2));
+        }, [vectorCutoff]);
+
+        useEffect(() => {
             const requestKey = JSON.stringify({
                 query,
                 page,
                 searchTypes: activeSearchTypes,
+                vectorCutoff,
                 hasPerson,
                 filters,
             });
@@ -499,6 +529,7 @@
                 query,
                 page,
                 searchTypes: activeSearchTypes,
+                vectorCutoff,
                 hasPerson,
                 filters,
             });
@@ -549,13 +580,14 @@
                         setLoadingPage(false);
                     }
                 });
-        }, [query, page, filters, hasPerson, activeSearchTypes]);
+        }, [query, page, filters, hasPerson, activeSearchTypes, vectorCutoff]);
 
         function fetchPageData(targetPage) {
             const params = buildSearchParams({
                 query,
                 page: targetPage,
                 searchTypes: activeSearchTypes,
+                vectorCutoff,
                 hasPerson,
                 filters,
             });
@@ -713,22 +745,6 @@
                             </FormControl>
                         </div>
 
-                        {vectorSearchEnabled && (
-                            <div className="filter-group">
-                                <div className="section-label">Search Type</div>
-                                <FormControl component="fieldset">
-                                    <RadioGroup value={searchTypeSelection} onChange={event => {
-                                        setPage(0);
-                                        setSearchTypeSelection(event.target.value);
-                                    }}>
-                                        <FormControlLabel value="Text" control={<Radio />} label="Text" />
-                                        <FormControlLabel value="Vector" control={<Radio />} label="Vector" />
-                                        <FormControlLabel value="Both" control={<Radio />} label="Both" />
-                                    </RadioGroup>
-                                </FormControl>
-                            </div>
-                        )}
-
                         <div className="filter-group">
                             <div className="section-label">Categories</div>
                             {FILTER_KEYS.map(key => (
@@ -750,6 +766,45 @@
                                 </Box>
                             ))}
                         </div>
+
+                        {vectorSearchEnabled && (
+                            <div className="filter-group">
+                                <div className="section-label">Search Type</div>
+                                <FormControl component="fieldset">
+                                    <RadioGroup value={searchTypeSelection} onChange={event => {
+                                        setPage(0);
+                                        setSearchTypeSelection(event.target.value);
+                                    }}>
+                                        <FormControlLabel value="Text" control={<Radio />} label="Text" />
+                                        <FormControlLabel value="Vector" control={<Radio />} label="Vector" />
+                                        <FormControlLabel value="Both" control={<Radio />} label="Both" />
+                                    </RadioGroup>
+                                </FormControl>
+
+                                <Box sx={{ marginTop: 2, opacity: activeSearchTypes.includes('Vector') ? 1 : 0.5 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
+                                        <Typography style={{ fontWeight: 800 }}>Vector Cutoff</Typography>
+                                        <Typography color="textSecondary">{vectorCutoff.toFixed(2)}</Typography>
+                                    </Box>
+                                    <Slider
+                                        value={vectorCutoff}
+                                        min={0.5}
+                                        max={1}
+                                        step={0.01}
+                                        marks={[
+                                            { value: 0.5, label: '0.50' },
+                                            { value: 0.88, label: '0.88' },
+                                            { value: 1, label: '1.00' }
+                                        ]}
+                                        disabled={!activeSearchTypes.includes('Vector')}
+                                        onChange={(event, value) => {
+                                            setPage(0);
+                                            setVectorCutoff(Array.isArray(value) ? value[0] : value);
+                                        }}
+                                    />
+                                </Box>
+                            </div>
+                        )}
                     </aside>
 
                     <section className="content-panel">

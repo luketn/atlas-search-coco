@@ -45,6 +45,7 @@ public class ImageDataAccess implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(ImageDataAccess.class);
 
     private static final int PAGE_SIZE = 10;
+    public static final double DEFAULT_VECTOR_SCORE_CUTOFF = 0.88;
     private static final int HYBRID_RANK_OFFSET = 60;
     private static final int MAX_VECTOR_RESULTS = 10_000;
     private static final int MIN_VECTOR_CANDIDATES = 100;
@@ -164,7 +165,8 @@ public class ImageDataAccess implements AutoCloseable {
                 kitchen,
                 outdoor,
                 sports,
-                vehicle
+                vehicle,
+                DEFAULT_VECTOR_SCORE_CUTOFF
         );
     }
 
@@ -184,9 +186,48 @@ public class ImageDataAccess implements AutoCloseable {
             List<String> sports,
             List<String> vehicle
     ) {
+        return search(
+                text,
+                searchTypes,
+                page,
+                hasPerson,
+                animal,
+                appliance,
+                electronic,
+                food,
+                furniture,
+                indoor,
+                kitchen,
+                outdoor,
+                sports,
+                vehicle,
+                DEFAULT_VECTOR_SCORE_CUTOFF
+        );
+    }
+
+    public ImageSearchResult search(
+            String text,
+            Set<SearchType> searchTypes,
+            Integer page,
+            Boolean hasPerson,
+            List<String> animal,
+            List<String> appliance,
+            List<String> electronic,
+            List<String> food,
+            List<String> furniture,
+            List<String> indoor,
+            List<String> kitchen,
+            List<String> outdoor,
+            List<String> sports,
+            List<String> vehicle,
+            Double vectorScoreCutoff
+    ) {
         EnumSet<SearchType> requestedSearchTypes = searchTypes == null || searchTypes.isEmpty()
                 ? EnumSet.of(SearchType.Text)
                 : EnumSet.copyOf(searchTypes);
+        double effectiveVectorScoreCutoff = vectorScoreCutoff == null
+                ? DEFAULT_VECTOR_SCORE_CUTOFF
+                : Math.max(0.0, Math.min(1.0, vectorScoreCutoff));
         SearchFilters filters = new SearchFilters(
                 hasPerson,
                 normaliseValues(animal),
@@ -209,7 +250,7 @@ public class ImageDataAccess implements AutoCloseable {
             throw new IllegalStateException("Vector search index is not available.");
         }
 
-        return vectorOrHybridSearch(text, requestedSearchTypes, page, filters);
+        return vectorOrHybridSearch(text, requestedSearchTypes, page, filters, effectiveVectorScoreCutoff);
     }
 
     private ImageSearchResult textSearch(String text, Integer page, SearchFilters filters) {
@@ -255,7 +296,13 @@ public class ImageDataAccess implements AutoCloseable {
         return aggregateSearchResult(imageCollection.aggregate(aggregateStages, ImageSearchResult.class), aggregateStages);
     }
 
-    private ImageSearchResult vectorOrHybridSearch(String text, Set<SearchType> searchTypes, Integer page, SearchFilters filters) {
+    private ImageSearchResult vectorOrHybridSearch(
+            String text,
+            Set<SearchType> searchTypes,
+            Integer page,
+            SearchFilters filters,
+            double vectorScoreCutoff
+    ) {
         int skip = page == null ? 0 : page * PAGE_SIZE;
         List<Double> queryVector = LMStudioEmbedding.embed(text).embedding();
         long vectorLimit = Math.max(1L, imageDocumentCollection.countDocuments(filters.toVectorFilterDocument()));
@@ -264,12 +311,12 @@ public class ImageDataAccess implements AutoCloseable {
 
         List<Bson> aggregateStages;
         if (searchTypes.equals(EnumSet.of(SearchType.Vector))) {
-            aggregateStages = new ArrayList<>(buildVectorPipeline(queryVector, filters, vectorResultLimit, numCandidates));
-        } else {
-            aggregateStages = new ArrayList<>(buildRankFusionPipeline(text, queryVector, filters, vectorResultLimit, numCandidates));
+            aggregateStages = new ArrayList<>(buildVectorPipeline(queryVector, filters, vectorResultLimit, numCandidates, vectorScoreCutoff));
+            aggregateStages.add(new Document("$project", buildImageProjectionFields()));
+            return aggregateRankedSearchResult(aggregateStages, skip);
         }
-        aggregateStages.add(new Document("$project", buildImageProjectionFields()));
-        return aggregateRankedSearchResult(aggregateStages, skip);
+
+        return hybridSearch(text, queryVector, skip, filters, vectorResultLimit, numCandidates, vectorScoreCutoff);
     }
 
     private ImageSearchResult aggregateSearchResult(AggregateIterable<ImageSearchResult> aggregateCursor, List<? extends Bson> aggregateStages) {
@@ -306,6 +353,10 @@ public class ImageDataAccess implements AutoCloseable {
     }
 
     private ImageSearchResult aggregateRankedSearchResult(List<? extends Bson> aggregateStages, int skip) {
+        return buildRankedSearchResult(loadRankedImages(aggregateStages), skip, null);
+    }
+
+    private List<Image> loadRankedImages(List<? extends Bson> aggregateStages) {
         if (log.isTraceEnabled()) {
             for (Bson aggregateStage : aggregateStages) {
                 System.out.println(aggregateStage.toBsonDocument().toJson(JsonWriterSettings.builder().indent(true).build()));
@@ -320,7 +371,6 @@ public class ImageDataAccess implements AutoCloseable {
         }
 
         ArrayList<Image> rankedImages = new ArrayList<>();
-        QueryStats stats = null;
         try (MongoCursor<Image> cursor = aggregateCursor.cursor()) {
             if (traceId != null) {
                 MongoConnectionTracing.registerCursorTrace(cursor, traceId);
@@ -328,24 +378,65 @@ public class ImageDataAccess implements AutoCloseable {
             while (cursor.hasNext()) {
                 rankedImages.add(cursor.next());
             }
-            if (traceId != null) {
-                stats = MongoConnectionTracing.getQueryStats(cursor);
-            }
         }
 
+        if (log.isTraceEnabled()) {
+            log.trace(JsonUtil.writeToString(rankedImages));
+        }
+        return rankedImages;
+    }
+
+    private ImageSearchResult hybridSearch(
+            String text,
+            List<Double> queryVector,
+            int skip,
+            SearchFilters filters,
+            int vectorResultLimit,
+            int numCandidates,
+            double vectorScoreCutoff
+    ) {
+        List<Image> textResults = loadRankedImages(buildTextRankingPipeline(text, filters, MAX_VECTOR_RESULTS));
+        List<Image> vectorResults = loadRankedImages(buildVectorPipeline(queryVector, filters, vectorResultLimit, numCandidates, vectorScoreCutoff));
+        List<Image> rankedImages = fuseRankedImages(textResults, vectorResults);
+        return buildRankedSearchResult(rankedImages, skip, null);
+    }
+
+    private ImageSearchResult buildRankedSearchResult(List<Image> rankedImages, int skip, QueryStats stats) {
         ImageSearchResult imageSearchResult = new ImageSearchResult(
                 rankedImages.stream().skip(skip).limit(PAGE_SIZE).toList(),
                 List.of(buildMeta(rankedImages)),
                 stats
         );
-
         if (log.isTraceEnabled()) {
             log.trace(JsonUtil.writeToString(imageSearchResult));
         }
         return imageSearchResult;
     }
 
-    private List<Bson> buildVectorPipeline(List<Double> queryVector, SearchFilters filters, int limit, int numCandidates) {
+    private List<Image> fuseRankedImages(List<Image> textResults, List<Image> vectorResults) {
+        Map<Integer, Image> imageById = new LinkedHashMap<>();
+        Map<Integer, Double> scoreById = new HashMap<>();
+
+        applyReciprocalRankScores(textResults, imageById, scoreById);
+        applyReciprocalRankScores(vectorResults, imageById, scoreById);
+
+        return scoreById.entrySet().stream()
+                .sorted(Map.Entry.<Integer, Double>comparingByValue(Comparator.reverseOrder())
+                        .thenComparing(Map.Entry::getKey))
+                .map(entry -> imageById.get(entry.getKey()))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private void applyReciprocalRankScores(List<Image> rankedImages, Map<Integer, Image> imageById, Map<Integer, Double> scoreById) {
+        for (int i = 0; i < rankedImages.size(); i++) {
+            Image image = rankedImages.get(i);
+            imageById.putIfAbsent(image._id(), image);
+            scoreById.merge(image._id(), 1.0 / (HYBRID_RANK_OFFSET + i + 1), Double::sum);
+        }
+    }
+
+    private List<Bson> buildVectorPipeline(List<Double> queryVector, SearchFilters filters, int limit, int numCandidates, double vectorScoreCutoff) {
         ArrayList<Bson> pipeline = new ArrayList<>();
         Document vectorStage = new Document("index", MongoConnection.vector_index_name)
                 .append("path", "captionEmbedding")
@@ -358,23 +449,20 @@ public class ImageDataAccess implements AutoCloseable {
         }
         pipeline.add(new Document("$vectorSearch", vectorStage));
         pipeline.add(buildScoreProjection("vectorSearchScore"));
+        pipeline.add(buildScoreCutoffMatchStage(vectorScoreCutoff));
         pipeline.add(buildRankStage());
         pipeline.add(buildHybridScoreStage());
         pipeline.add(buildImageProjection());
         return pipeline;
     }
 
-    private List<Bson> buildRankFusionPipeline(String text, List<Double> queryVector, SearchFilters filters, int limit, int numCandidates) {
-        ArrayList<Bson> pipeline = new ArrayList<>();
-        pipeline.add(new Document("$rankFusion", new Document("input", new Document("pipelines", new Document()
-                .append("textSearch", List.of(
-                        new Document("$search", new Document("index", MongoConnection.index_name)
-                                .append("compound", buildTextCompound(text, filters)))
-                ))
-                .append("vectorSearch", List.of(
-                        buildVectorPipelineStage(queryVector, filters, limit, numCandidates)
-                ))))));
-        return pipeline;
+    private List<Bson> buildTextRankingPipeline(String text, SearchFilters filters, int limit) {
+        return List.of(
+                new Document("$search", new Document("index", MongoConnection.index_name)
+                        .append("compound", buildTextCompound(text, filters))),
+                Aggregates.limit(limit),
+                new Document("$project", buildImageProjectionFields())
+        );
     }
 
     private Document buildVectorPipelineStage(List<Double> queryVector, SearchFilters filters, int limit, int numCandidates) {
@@ -388,6 +476,10 @@ public class ImageDataAccess implements AutoCloseable {
             vectorStage.append("filter", filterDocument);
         }
         return new Document("$vectorSearch", vectorStage);
+    }
+
+    private Document buildScoreCutoffMatchStage(double vectorScoreCutoff) {
+        return new Document("$match", new Document("_rawScore", new Document("$gte", vectorScoreCutoff)));
     }
 
     private Document buildTextCompound(String text, SearchFilters filters) {

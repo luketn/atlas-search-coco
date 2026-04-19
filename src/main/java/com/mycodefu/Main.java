@@ -75,6 +75,7 @@ public class Main {
                     Integer page = params.containsKey("page")
                             ? Integer.parseInt(firstParam(params, "page"))
                             : 0;
+                    Double vectorCutoff = doubleParam(params, "vectorCutoff");
 
                     try (ImageDataAccess imageDataAccess = ImageDataAccess.getInstance()) {
                         ImageSearchResult result = imageDataAccess.search(
@@ -91,7 +92,8 @@ public class Main {
                                 listParam(params, "kitchen"),
                                 listParam(params, "outdoor"),
                                 listParam(params, "sports"),
-                                listParam(params, "vehicle")
+                                listParam(params, "vehicle"),
+                                vectorCutoff
                         );
                         return writeSearchResult(result, javaStartedAtNanos);
                     }
@@ -138,6 +140,11 @@ public class Main {
     private static List<String> listParam(Map<String, List<String>> params, String key) {
         String value = firstParam(params, key);
         return value == null || value.isBlank() ? null : List.of(value.split(","));
+    }
+
+    private static Double doubleParam(Map<String, List<String>> params, String key) {
+        String value = firstParam(params, key);
+        return value == null || value.isBlank() ? null : Double.parseDouble(value);
     }
 
     private static String writeSearchResult(ImageSearchResult result, long javaStartedAtNanos) {

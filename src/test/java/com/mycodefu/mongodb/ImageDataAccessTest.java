@@ -250,6 +250,37 @@ public class ImageDataAccessTest extends AtlasDataTest {
     }
 
     @Test
+    public void vector_search_respects_score_cutoff() {
+        LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(0.7, 0.7, 0.0, 0.0), "test-query-model"));
+        try {
+            ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+            ImageSearchResult searchResult = imageDataAccess.search(
+                    "bear-like query with weaker similarity",
+                    EnumSet.of(SearchType.Vector),
+                    0,
+                    null,
+                    List.of("bear"),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of("bench"),
+                    null,
+                    null,
+                    0.95
+            );
+
+            assertNotNull(searchResult);
+            assertTrue(searchResult.docs().isEmpty());
+            assertEquals(0, searchResult.meta().getFirst().count().total());
+        } finally {
+            LMStudioEmbedding.setEmbeddingProviderForTests(null);
+        }
+    }
+
+    @Test
     public void hybrid_search_combines_text_and_vector_results() {
         LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(0.0, 1.0, 0.15, 0.0), "test-query-model"));
         try {
