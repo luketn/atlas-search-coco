@@ -63,9 +63,6 @@ public class Main {
                 .addGetHandler("/image/search", params -> {
                     long javaStartedAtNanos = System.nanoTime();
                     String text = firstParam(params, "text");
-                    if (text == null) {
-                        return "Please provide a text parameter";
-                    }
 
                     EnumSet<SearchType> searchTypes = parseSearchTypes(params);
                     if (searchTypes.contains(SearchType.Vector) && !searchCapabilities.vectorSearchEnabled()) {

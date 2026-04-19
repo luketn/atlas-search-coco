@@ -4,7 +4,9 @@ import com.mycodefu.lmstudio.LMStudioEmbedding;
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.model.SearchType;
+import com.mycodefu.mongodb.atlas.MongoConnection;
 import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
+import org.bson.Document;
 import org.junit.Test;
 
 import java.util.Date;
@@ -189,6 +191,66 @@ public class ImageDataAccessTest extends AtlasDataTest {
         );
         assertNotNull(searchResultPage3);
         assertEquals(0, searchResultPage3.docs().size());
+    }
+
+    @Test
+    public void empty_text_browses_all_documents() {
+        ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+        long totalDocuments = MongoConnection.connection()
+                .getDatabase(MongoConnection.database_name)
+                .getCollection(ImageDataAccess.collection_name, Document.class)
+                .countDocuments();
+
+        ImageSearchResult searchResult = imageDataAccess.search(
+                null,
+                EnumSet.of(SearchType.Text, SearchType.Vector),
+                0,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        assertNotNull(searchResult);
+        assertEquals(10, searchResult.docs().size());
+        assertEquals(totalDocuments, searchResult.meta().getFirst().count().total());
+    }
+
+    @Test
+    public void category_only_search_without_text_returns_filtered_documents() {
+        ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+        ImageSearchResult searchResult = imageDataAccess.search(
+                null,
+                EnumSet.of(SearchType.Text, SearchType.Vector),
+                0,
+                null,
+                List.of("bear"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of("bench"),
+                null,
+                null,
+                null
+        );
+
+        assertNotNull(searchResult);
+        assertFalse(searchResult.docs().isEmpty());
+        assertEquals(2, searchResult.meta().getFirst().count().total());
+        assertTrue(searchResult.docs().stream().allMatch(image ->
+                image.animal() != null && image.animal().contains("bear")
+                        && image.outdoor() != null && image.outdoor().contains("bench")));
     }
 
     @Test

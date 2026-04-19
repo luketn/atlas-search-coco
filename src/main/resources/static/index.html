@@ -372,7 +372,10 @@
 
     function buildSearchParams({ query, page, searchTypes, hasPerson, filters, vectorCutoff }) {
         const params = new URLSearchParams();
-        params.set('text', query.trim() || 'a');
+        const trimmedQuery = query.trim();
+        if (trimmedQuery) {
+            params.set('text', trimmedQuery);
+        }
         params.set('page', String(page));
 
         searchTypes.forEach(searchType => params.append('searchType', searchType));

@@ -47,7 +47,6 @@ public class ImageDataAccess implements AutoCloseable {
     private static final int PAGE_SIZE = 10;
     public static final double DEFAULT_VECTOR_SCORE_CUTOFF = 0.88;
     private static final int HYBRID_RANK_OFFSET = 60;
-    private static final int MAX_VECTOR_RESULTS = 10_000;
     private static final int MIN_VECTOR_CANDIDATES = 100;
     private static final int MAX_VECTOR_CANDIDATES = 10_000;
     private static final List<String> FACET_FIELDS = List.of(
@@ -225,6 +224,7 @@ public class ImageDataAccess implements AutoCloseable {
         EnumSet<SearchType> requestedSearchTypes = searchTypes == null || searchTypes.isEmpty()
                 ? EnumSet.of(SearchType.Text)
                 : EnumSet.copyOf(searchTypes);
+        boolean hasMeaningfulText = text != null && !text.isBlank();
         double effectiveVectorScoreCutoff = vectorScoreCutoff == null
                 ? DEFAULT_VECTOR_SCORE_CUTOFF
                 : Math.max(0.0, Math.min(1.0, vectorScoreCutoff));
@@ -241,6 +241,10 @@ public class ImageDataAccess implements AutoCloseable {
                 normaliseValues(sports),
                 normaliseValues(vehicle)
         );
+
+        if (!hasMeaningfulText) {
+            return browseSearch(page, filters);
+        }
 
         if (requestedSearchTypes.equals(EnumSet.of(SearchType.Text))) {
             return textSearch(text, page, filters);
@@ -296,6 +300,12 @@ public class ImageDataAccess implements AutoCloseable {
         return aggregateSearchResult(imageCollection.aggregate(aggregateStages, ImageSearchResult.class), aggregateStages);
     }
 
+    private ImageSearchResult browseSearch(Integer page, SearchFilters filters) {
+        int skip = page == null ? 0 : page * PAGE_SIZE;
+        List<Bson> aggregateStages = buildBrowsePipeline(filters);
+        return aggregateRankedSearchResult(aggregateStages, skip);
+    }
+
     private ImageSearchResult vectorOrHybridSearch(
             String text,
             Set<SearchType> searchTypes,
@@ -306,7 +316,7 @@ public class ImageDataAccess implements AutoCloseable {
         int skip = page == null ? 0 : page * PAGE_SIZE;
         List<Double> queryVector = LMStudioEmbedding.embed(text).embedding();
         long vectorLimit = Math.max(1L, imageDocumentCollection.countDocuments(filters.toVectorFilterDocument()));
-        int vectorResultLimit = (int) Math.min(MAX_VECTOR_RESULTS, vectorLimit);
+        int vectorResultLimit = (int) Math.min(Integer.MAX_VALUE, vectorLimit);
         int numCandidates = Math.min(MAX_VECTOR_CANDIDATES, Math.max(vectorResultLimit, MIN_VECTOR_CANDIDATES));
 
         List<Bson> aggregateStages;
@@ -316,7 +326,7 @@ public class ImageDataAccess implements AutoCloseable {
             return aggregateRankedSearchResult(aggregateStages, skip);
         }
 
-        return hybridSearch(text, queryVector, skip, filters, vectorResultLimit, numCandidates, vectorScoreCutoff);
+        return hybridSearch(text, queryVector, skip, filters, vectorLimit, vectorResultLimit, numCandidates, vectorScoreCutoff);
     }
 
     private ImageSearchResult aggregateSearchResult(AggregateIterable<ImageSearchResult> aggregateCursor, List<? extends Bson> aggregateStages) {
@@ -391,11 +401,13 @@ public class ImageDataAccess implements AutoCloseable {
             List<Double> queryVector,
             int skip,
             SearchFilters filters,
+            long filteredDocumentCount,
             int vectorResultLimit,
             int numCandidates,
             double vectorScoreCutoff
     ) {
-        List<Image> textResults = loadRankedImages(buildTextRankingPipeline(text, filters, MAX_VECTOR_RESULTS));
+        int textResultLimit = (int) Math.min(Integer.MAX_VALUE - 1L, Math.max(1L, filteredDocumentCount));
+        List<Image> textResults = loadRankedImages(buildTextRankingPipeline(text, filters, textResultLimit));
         List<Image> vectorResults = loadRankedImages(buildVectorPipeline(queryVector, filters, vectorResultLimit, numCandidates, vectorScoreCutoff));
         List<Image> rankedImages = fuseRankedImages(textResults, vectorResults);
         return buildRankedSearchResult(rankedImages, skip, null);
@@ -463,6 +475,17 @@ public class ImageDataAccess implements AutoCloseable {
                 Aggregates.limit(limit),
                 new Document("$project", buildImageProjectionFields())
         );
+    }
+
+    private List<Bson> buildBrowsePipeline(SearchFilters filters) {
+        ArrayList<Bson> pipeline = new ArrayList<>();
+        Document filterDocument = filters.toVectorFilterDocument();
+        if (!filterDocument.isEmpty()) {
+            pipeline.add(new Document("$match", filterDocument));
+        }
+        pipeline.add(new Document("$sort", new Document("_id", 1)));
+        pipeline.add(new Document("$project", buildImageProjectionFields()));
+        return pipeline;
     }
 
     private Document buildVectorPipelineStage(List<Double> queryVector, SearchFilters filters, int limit, int numCandidates) {
