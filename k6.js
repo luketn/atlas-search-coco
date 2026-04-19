@@ -87,12 +87,13 @@ export default function () {
 
   searchDocsReturned.add(body !== null && Array.isArray(body.docs) ? body.docs.length : 0);
 
-  const stats = body !== null && typeof body === 'object' ? body.stats : null;
-  if (stats !== null && Number.isFinite(stats.totalTimeMs)) {
+  const stats = body !== null && typeof body === 'object' && body.stats !== undefined ? body.stats : null;
+  if (stats !== null && typeof stats === 'object' && Number.isFinite(stats.totalTimeMs)) {
     searchMongoTime.add(stats.totalTimeMs);
   }
   if (
     stats !== null &&
+    typeof stats === 'object' &&
     Number.isFinite(stats.totalJavaTimeMs) &&
     Number.isFinite(stats.totalTimeMs)
   ) {
@@ -104,7 +105,11 @@ export default function () {
     'response is json': (res) => (res.headers['Content-Type'] || '').includes('application/json'),
     'docs is an array': () => body !== null && Array.isArray(body.docs),
     'meta is an array': () => body !== null && Array.isArray(body.meta),
-    'stats has java timing when present': () => stats === null || !Number.isFinite(stats.totalTimeMs) || Number.isFinite(stats.totalJavaTimeMs),
+    'stats has java timing when present': () =>
+      stats === null ||
+      typeof stats !== 'object' ||
+      !Number.isFinite(stats.totalTimeMs) ||
+      Number.isFinite(stats.totalJavaTimeMs),
   });
 
   successfulChecks.add(ok);
