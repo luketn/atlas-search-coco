@@ -16,19 +16,12 @@ public final class SearchProjection {
         return new Document("$project", imageProjection(includeLicense));
     }
 
-    public static Document docEnvelopeStage() {
-        return new Document("$project", new Document("doc", "$$ROOT").append("__resultType", "doc"));
+    public static Document facetMetaStage() {
+        return new Document("$project", new Document("hasMore", null).append("facet", "$facet"));
     }
 
-    public static Document metaEnvelopeStage() {
-        return new Document("$project", new Document("meta",
-                new Document("count", new Document("total", "$count.total"))
-                        .append("facet", null))
-                .append("__resultType", "meta"));
-    }
-
-    public static Document countedMetaEnvelopeStage() {
-        return new Document("$project", new Document("count", new Document("total", "$total")).append("facet", null));
+    public static Document emptyMetaStage() {
+        return new Document("$project", new Document("hasMore", null).append("facet", null));
     }
 
     public static Document imageProjection(boolean includeLicense) {

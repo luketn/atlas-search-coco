@@ -417,8 +417,8 @@
         const [query, setQuery] = useState('');
         const [page, setPage] = useState(0);
         const [pageDocs, setPageDocs] = useState({});
+        const [pageHasMore, setPageHasMore] = useState({});
         const [facet, setFacet] = useState(null);
-        const [total, setTotal] = useState(0);
         const [filters, setFilters] = useState(createEmptyFilterState());
         const [optionsByFilter, setOptionsByFilter] = useState(createEmptyFilterState());
         const [hasPerson, setHasPerson] = useState('any');
@@ -433,7 +433,7 @@
 
         const domain = document.location.host.includes('localhost') ? 'http://localhost:8222' : '';
         const currentPageDocs = pageDocs[page] || [];
-        const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        const currentPageHasMore = !!pageHasMore[page];
         const requestedSearchType = useMemo(
             () => getRequestedSearchType(searchTypeSelection, vectorSearchEnabled),
             [searchTypeSelection, vectorSearchEnabled]
@@ -515,6 +515,7 @@
 
             if (page === 0) {
                 setPageDocs({});
+                setPageHasMore({});
                 setViewer(null);
             }
 
@@ -536,8 +537,11 @@
                         ...previous,
                         [page]: docs,
                     }));
+                    setPageHasMore(previous => ({
+                        ...previous,
+                        [page]: !!(meta && meta.hasMore),
+                    }));
                     setFacet(meta ? meta.facet : null);
-                    setTotal(meta && meta.count ? meta.count.total : 0);
                     setSearchError('');
 
                     if (docs.length > 0 && (!viewer || page === 0)) {
@@ -549,8 +553,8 @@
                         return;
                     }
                     setPageDocs({});
+                    setPageHasMore({});
                     setFacet(null);
-                    setTotal(0);
                     setViewer(null);
                     setSearchError(error.message || 'Search failed');
                 })
@@ -585,9 +589,10 @@
                         ...previous,
                         [targetPage]: docs,
                     }));
-                    if (meta && meta.count) {
-                        setTotal(meta.count.total);
-                    }
+                    setPageHasMore(previous => ({
+                        ...previous,
+                        [targetPage]: !!(meta && meta.hasMore),
+                    }));
                     return docs;
                 });
         }
@@ -633,8 +638,12 @@
                 return;
             }
 
+            if (direction === 'next' && !pageHasMore[viewer.page]) {
+                return;
+            }
+
             const targetPage = direction === 'next' ? viewer.page + 1 : viewer.page - 1;
-            if (targetPage < 0 || targetPage >= totalPages) {
+            if (targetPage < 0) {
                 return;
             }
 
@@ -665,7 +674,7 @@
 
         const canMovePrev = !!viewer && (viewer.index > 0 || viewer.page > 0);
         const canMoveNext = !!viewer && viewerImage && (
-            viewer.index < ((pageDocs[viewer.page] || []).length - 1) || viewer.page + 1 < totalPages
+            viewer.index < ((pageDocs[viewer.page] || []).length - 1) || !!pageHasMore[viewer.page]
         );
 
         return (
@@ -770,8 +779,8 @@
                                 </Typography>
                                 <Typography variant="body2" color="textSecondary">
                                     {vectorSearchEnabled
-                                        ? `${total} results - ${effectiveSearchLabel} - ${PAGE_SIZE} per page`
-                                        : `${total} results - ${PAGE_SIZE} per page`}
+                                        ? `${effectiveSearchLabel} - ${PAGE_SIZE} per page`
+                                        : `${PAGE_SIZE} per page`}
                                 </Typography>
                                 {searchError && (
                                     <Typography variant="body2" style={{ color: '#b00020', marginTop: 6 }}>
@@ -792,8 +801,7 @@
                                     <Button variant="outlined" disabled={page === 0} onClick={() => setPage(page - 1)}>
                                         Previous
                                     </Button>
-                                    <Typography variant="body2">{`Page ${page + 1} / ${totalPages}`}</Typography>
-                                    <Button variant="outlined" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>
+                                    <Button variant="outlined" disabled={!currentPageHasMore} onClick={() => setPage(page + 1)}>
                                         Next
                                     </Button>
                                 </Box>
@@ -840,9 +848,6 @@
                                             <Button variant="outlined" disabled={!canMovePrev || loadingViewerPage} onClick={() => moveViewer('prev')}>
                                                 Previous
                                             </Button>
-                                            <Typography variant="body2" color="textSecondary">
-                                                {`Result ${viewer.page * PAGE_SIZE + viewer.index + 1} of ${total}`}
-                                            </Typography>
                                             <Button variant="outlined" disabled={!canMoveNext || loadingViewerPage} onClick={() => moveViewer('next')}>
                                                 Next
                                             </Button>

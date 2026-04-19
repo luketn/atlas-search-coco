@@ -83,13 +83,11 @@ public class ImageDataAccess implements AutoCloseable {
             case TEXT -> executeSearch(SearchPipelines.textSearchPipeline(request));
             case VECTOR -> executeSearch(SearchPipelines.vectorSearchPipeline(
                     request,
-                    LMStudioEmbedding.embed(request.text()).embedding(),
-                    collection_name
+                    LMStudioEmbedding.embed(request.text()).embedding()
             ));
             case COMBINED -> executeSearch(SearchPipelines.combinedSearchPipeline(
                     request,
-                    LMStudioEmbedding.embed(request.text()).embedding(),
-                    Math.max(vectorSearchIndexState.documentCount(), SearchPipelines.pageSize())
+                    LMStudioEmbedding.embed(request.text()).embedding()
             ));
         };
     }
@@ -111,7 +109,7 @@ public class ImageDataAccess implements AutoCloseable {
             for (Document indexDocument : imageDocumentCollection.listSearchIndexes()) {
                 if (MongoConnection.vector_index_name.equals(indexDocument.getString("name"))
                         && "READY".equals(indexDocument.getString("status"))) {
-                    return new VectorSearchIndexState(true, documentCount(indexDocument.get("numDocs")));
+                    return new VectorSearchIndexState(true);
                 }
             }
             return VectorSearchIndexState.unavailable();
@@ -120,10 +118,6 @@ public class ImageDataAccess implements AutoCloseable {
                     "Starting with vector search disabled.", e);
             return VectorSearchIndexState.unavailable();
         }
-    }
-
-    private int documentCount(Object value) {
-        return value instanceof Number number ? number.intValue() : 0;
     }
 
     private ImageSearchResult aggregateSearchResult(AggregateIterable<ImageSearchResult> aggregateCursor, List<? extends Bson> aggregateStages) {
@@ -135,11 +129,33 @@ public class ImageDataAccess implements AutoCloseable {
         );
 
         ImageSearchResult aggregateResult = executionResult.value();
-        ImageSearchResult imageSearchResult = aggregateResult == null ? null : aggregateResult.withStats(executionResult.stats());
+        ImageSearchResult imageSearchResult = normaliseSearchResult(aggregateResult, executionResult.stats());
         if (log.isDebugEnabled()) {
             log.debug(JsonUtil.writeToString(imageSearchResult));
         }
         return imageSearchResult;
+    }
+
+    private ImageSearchResult normaliseSearchResult(ImageSearchResult aggregateResult, QueryStats stats) {
+        if (aggregateResult == null) {
+            return new ImageSearchResult(
+                    List.of(),
+                    List.of(new ImageSearchResult.ImageMeta(false, null)),
+                    stats
+            );
+        }
+
+        List<Image> docs = aggregateResult.docs() == null ? List.of() : aggregateResult.docs();
+        boolean hasMore = docs.size() > SearchPipelines.pageSize();
+        List<Image> pageDocs = hasMore ? List.copyOf(docs.subList(0, SearchPipelines.pageSize())) : docs;
+        ImageSearchResult.ImageMeta aggregateMeta = aggregateResult.meta() == null || aggregateResult.meta().isEmpty()
+                ? null
+                : aggregateResult.meta().getFirst();
+        ImageSearchResult.ImageMeta meta = new ImageSearchResult.ImageMeta(
+                hasMore,
+                aggregateMeta == null ? null : aggregateMeta.facet()
+        );
+        return new ImageSearchResult(pageDocs, List.of(meta), stats);
     }
 
     private <T, R> AggregateExecutionResult<R> executeAggregate(
@@ -186,9 +202,9 @@ public class ImageDataAccess implements AutoCloseable {
     private record AggregateExecutionResult<T>(T value, QueryStats stats) {
     }
 
-    public record VectorSearchIndexState(boolean available, int documentCount) {
+    public record VectorSearchIndexState(boolean available) {
         private static VectorSearchIndexState unavailable() {
-            return new VectorSearchIndexState(false, 0);
+            return new VectorSearchIndexState(false);
         }
     }
 }

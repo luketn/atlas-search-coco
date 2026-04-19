@@ -4,11 +4,9 @@ import com.mycodefu.lmstudio.LMStudioEmbedding;
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.model.SearchType;
-import com.mycodefu.mongodb.atlas.MongoConnection;
 import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
 import com.mycodefu.mongodb.search.SearchFilters;
 import com.mycodefu.mongodb.search.SearchRequest;
-import org.bson.Document;
 import org.junit.Test;
 
 import java.util.Date;
@@ -162,25 +160,22 @@ public class ImageDataAccessTest extends AtlasDataTest {
         ImageSearchResult searchResult = imageDataAccess.search(request("cat", 0, null, null, null, null, null, null, null, null, null, null, null));
         assertNotNull(searchResult);
         assertEquals(10, searchResult.docs().size());
-        assertEquals(13, searchResult.meta().getFirst().count().total());
+        assertTrue(searchResult.meta().getFirst().hasMore());
 
         ImageSearchResult searchResultPage2 = imageDataAccess.search(request("cat", 1, null, null, null, null, null, null, null, null, null, null, null));
         assertNotNull(searchResultPage2);
         assertEquals(3, searchResultPage2.docs().size());
+        assertFalse(searchResultPage2.meta().getFirst().hasMore());
 
         ImageSearchResult searchResultPage3 = imageDataAccess.search(request("cat", 2, null, null, null, null, null, null, null, null, null, null, null));
         assertNotNull(searchResultPage3);
         assertEquals(0, searchResultPage3.docs().size());
+        assertFalse(searchResultPage3.meta().getFirst().hasMore());
     }
 
     @Test
     public void empty_text_browses_all_documents() {
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-        long totalDocuments = MongoConnection.connection()
-                .getDatabase(MongoConnection.database_name)
-                .getCollection(ImageDataAccess.collection_name, Document.class)
-                .countDocuments();
-
         ImageSearchResult searchResult = imageDataAccess.search(request(
                 null,
                 SearchType.Combined,
@@ -201,7 +196,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
 
         assertNotNull(searchResult);
         assertEquals(10, searchResult.docs().size());
-        assertEquals(totalDocuments, searchResult.meta().getFirst().count().total());
+        assertTrue(searchResult.meta().getFirst().hasMore());
     }
 
     @Test
@@ -227,7 +222,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
 
         assertNotNull(searchResult);
         assertFalse(searchResult.docs().isEmpty());
-        assertEquals(2, searchResult.meta().getFirst().count().total());
+        assertFalse(searchResult.meta().getFirst().hasMore());
         assertTrue(searchResult.docs().stream().allMatch(image ->
                 image.animal() != null && image.animal().contains("bear")
                         && image.outdoor() != null && image.outdoor().contains("bench")));
@@ -286,7 +281,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
             assertNull(searchResult.docs().getFirst().captionEmbeddingModel());
             assertNull(searchResult.docs().getFirst().licenseName());
             assertNull(searchResult.docs().getFirst().licenseUrl());
-            assertEquals(2, searchResult.meta().getFirst().count().total());
+            assertFalse(searchResult.meta().getFirst().hasMore());
             assertNull(searchResult.meta().getFirst().facet());
         } finally {
             LMStudioEmbedding.setEmbeddingProviderForTests(null);
@@ -362,14 +357,10 @@ public class ImageDataAccessTest extends AtlasDataTest {
     }
 
     @Test
-    public void vector_search_returns_exact_filtered_total_count() {
+    public void vector_search_reports_has_more_for_broad_result_set() {
         LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(0.3, 0.3, 0.3, 0.3), "test-query-model"));
         try {
             ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-            long totalDocuments = MongoConnection.connection()
-                    .getDatabase(MongoConnection.database_name)
-                    .getCollection(ImageDataAccess.collection_name, Document.class)
-                    .countDocuments();
             ImageSearchResult searchResult = imageDataAccess.search(request(
                     "cow",
                     SearchType.Vector,
@@ -389,7 +380,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
             ));
 
             assertNotNull(searchResult);
-            assertEquals(totalDocuments, searchResult.meta().getFirst().count().total());
+            assertTrue(searchResult.meta().getFirst().hasMore());
             assertNull(searchResult.meta().getFirst().facet());
         } finally {
             LMStudioEmbedding.setEmbeddingProviderForTests(null);
@@ -426,7 +417,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
             assertNull(searchResult.docs().getFirst().captionEmbeddingModel());
             assertNull(searchResult.docs().getFirst().licenseName());
             assertNull(searchResult.docs().getFirst().licenseUrl());
-            assertEquals(1, searchResult.meta().getFirst().count().total());
+            assertFalse(searchResult.meta().getFirst().hasMore());
             assertNull(searchResult.meta().getFirst().facet());
         } finally {
             LMStudioEmbedding.setEmbeddingProviderForTests(null);
