@@ -2,29 +2,322 @@
 <html>
 <head>
     <title>MongoDB Atlas Search Service</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/@material-ui/core@latest/umd/material-ui.development.js" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
     <style>
-        body {
+        :root {
+            --bg: #f5efe6;
+            --bg-accent: #efe2d0;
+            --panel: rgba(255, 250, 244, 0.90);
+            --panel-strong: rgba(255, 255, 255, 0.96);
+            --stroke: rgba(92, 69, 43, 0.16);
+            --text: #23180f;
+            --muted: #726454;
+            --accent: #b4531d;
+            --accent-deep: #8f3e14;
+            --accent-soft: rgba(180, 83, 29, 0.14);
+            --shadow: 0 20px 50px rgba(69, 45, 20, 0.12);
+            --toolbar-height: 92px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
             margin: 0;
-            padding: 16px;
+            height: 100%;
+            overflow: hidden;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(180, 83, 29, 0.17), transparent 28%),
+                radial-gradient(circle at top right, rgba(27, 88, 94, 0.10), transparent 26%),
+                linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
+            font-family: "Manrope", sans-serif;
         }
 
-        .result-image {
-            max-width: 240px;
-            margin-right: 1rem;
-            border-radius: 4px;
+        #root {
+            height: 100%;
         }
 
-        .result-row {
+        .app-shell {
             display: flex;
-            padding: 8px;
-            margin-bottom: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            min-height: var(--toolbar-height);
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--stroke);
+            background: rgba(255, 250, 244, 0.68);
+            backdrop-filter: blur(22px);
+        }
+
+        .brand-lockup {
+            min-width: 290px;
+        }
+
+        .brand-title {
+            margin: 0;
+            font-family: "Fraunces", serif;
+            font-size: 1.95rem;
+            line-height: 1;
+            letter-spacing: -0.03em;
+        }
+
+        .brand-subtitle {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .toolbar-search {
+            flex: 1;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px minmax(0, 1fr);
+            gap: 18px;
+            height: calc(100% - var(--toolbar-height));
+            padding: 18px;
+            min-height: 0;
+        }
+
+        .sidebar,
+        .content-panel {
+            min-height: 0;
+            border: 1px solid var(--stroke);
+            border-radius: 26px;
+            background: var(--panel);
+            box-shadow: var(--shadow);
+        }
+
+        .sidebar {
+            overflow: auto;
+            padding: 20px 18px 22px;
+        }
+
+        .content-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background:
+                linear-gradient(180deg, rgba(255, 252, 247, 0.98) 0%, rgba(252, 247, 239, 0.94) 100%);
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--stroke);
+            background: rgba(255, 255, 255, 0.52);
+        }
+
+        .results-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 18px 22px 24px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .result-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid rgba(92, 69, 43, 0.12);
+            border-radius: 22px;
+            background: var(--panel-strong);
+            box-shadow: 0 12px 28px rgba(69, 45, 20, 0.08);
+            cursor: pointer;
+            transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+        }
+
+        .result-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(180, 83, 29, 0.34);
+            box-shadow: 0 18px 34px rgba(69, 45, 20, 0.12);
+        }
+
+        .result-thumb {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            border-radius: 16px;
+            background: #f2ebdf;
+        }
+
+        .result-caption {
+            font-size: 0.95rem;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .card-meta {
+            color: var(--muted);
+            font-size: 0.83rem;
+        }
+
+        .full-screen-view {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+            gap: 22px;
+            height: 100%;
+            align-items: stretch;
+        }
+
+        .full-screen-stage {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 0;
+            padding: 18px;
+            border-radius: 24px;
+            background:
+                linear-gradient(180deg, rgba(243, 235, 223, 0.8) 0%, rgba(255, 249, 241, 0.96) 100%);
+        }
+
+        .full-screen-image {
+            display: block;
+            max-width: 100%;
+            max-height: 62vh;
+            width: auto;
+            height: auto;
+            border-radius: 20px;
+            box-shadow: 0 24px 42px rgba(0, 0, 0, 0.14);
+            background: #f2ebdf;
+        }
+
+        .full-screen-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            min-height: 0;
+            padding: 18px;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(92, 69, 43, 0.10);
+        }
+
+        .full-screen-caption {
+            font-family: "Fraunces", serif;
+            font-size: 1.5rem;
+            line-height: 1.25;
+            margin: 0;
+        }
+
+        .full-screen-meta {
+            color: var(--muted);
+            font-size: 0.94rem;
+            line-height: 1.7;
+        }
+
+        .nav-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .section-label {
+            margin-bottom: 10px;
+            color: var(--muted);
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .filter-group {
+            margin-bottom: 20px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid rgba(92, 69, 43, 0.08);
+        }
+
+        .chip-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        @media (max-width: 1100px) {
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .brand-lockup {
+                min-width: 0;
+            }
+
+            .workspace {
+                grid-template-columns: 1fr;
+                height: auto;
+                overflow: auto;
+            }
+
+            .sidebar {
+                max-height: none;
+            }
+
+            .content-panel {
+                min-height: 60vh;
+            }
+
+            .full-screen-view {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            html, body {
+                overflow: auto;
+            }
+
+            .app-shell {
+                height: auto;
+                min-height: 100%;
+            }
+
+            .toolbar {
+                padding: 18px 16px;
+            }
+
+            .workspace {
+                padding: 14px;
+                gap: 14px;
+            }
+
+            .content-header,
+            .results-body {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -32,7 +325,7 @@
 <div id="root"></div>
 
 <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
     const {
         Typography,
         Checkbox,
@@ -42,9 +335,9 @@
         FormControl,
         TextField,
         Box,
-        Grid,
         Button,
         Chip,
+        CircularProgress,
     } = MaterialUI;
 
     const FILTER_KEYS = [
@@ -59,6 +352,8 @@
         'sports',
         'vehicle'
     ];
+    const PAGE_SIZE = 10;
+    const SEARCH_TYPE_STORAGE_KEY = 'atlasCoco.searchTypeSelection';
 
     function toTitleCase(value) {
         return value.charAt(0).toUpperCase() + value.slice(1);
@@ -71,19 +366,97 @@
         }, {});
     }
 
+    function buildSearchParams({ query, page, searchType, hasPerson, filters }) {
+        const params = new URLSearchParams();
+        const trimmedQuery = query.trim();
+        if (trimmedQuery) {
+            params.set('text', trimmedQuery);
+        }
+        params.set('page', String(page));
+        params.set('searchType', searchType);
+
+        if (hasPerson === 'true' || hasPerson === 'false') {
+            params.set('hasPerson', hasPerson);
+        }
+
+        FILTER_KEYS.forEach(key => {
+            if (filters[key].length > 0) {
+                params.set(key, filters[key].join(','));
+            }
+        });
+
+        return params;
+    }
+
+    function getRequestedSearchType(searchTypeSelection, vectorSearchEnabled) {
+        if (!vectorSearchEnabled) {
+            return 'Text';
+        }
+        return searchTypeSelection;
+    }
+
+    function getSearchPlaceholder(searchTypeSelection, vectorSearchEnabled) {
+        if (!vectorSearchEnabled || searchTypeSelection === 'Text') {
+            return 'Search image captions with keyword text';
+        }
+        if (searchTypeSelection === 'Vector') {
+            return 'Search by semantic meaning with vector similarity';
+        }
+        return 'Search with combined text and vector ranking';
+    }
+
+    function readStoredSearchType() {
+        const storedValue = window.localStorage.getItem(SEARCH_TYPE_STORAGE_KEY);
+        if (storedValue === 'Both') {
+            return 'Combined';
+        }
+        return ['Text', 'Vector', 'Combined'].includes(storedValue) ? storedValue : 'Text';
+    }
+
     function App() {
         const [query, setQuery] = useState('');
         const [page, setPage] = useState(0);
-        const [docs, setDocs] = useState([]);
+        const [pageDocs, setPageDocs] = useState({});
+        const [pageHasMore, setPageHasMore] = useState({});
         const [facet, setFacet] = useState(null);
-        const [total, setTotal] = useState(0);
         const [filters, setFilters] = useState(createEmptyFilterState());
         const [optionsByFilter, setOptionsByFilter] = useState(createEmptyFilterState());
         const [hasPerson, setHasPerson] = useState('any');
+        const [searchTypeSelection, setSearchTypeSelection] = useState(readStoredSearchType);
+        const [vectorSearchEnabled, setVectorSearchEnabled] = useState(false);
         const [searchError, setSearchError] = useState('');
+        const [loadingPage, setLoadingPage] = useState(false);
+        const [viewMode, setViewMode] = useState('Grid');
+        const [viewer, setViewer] = useState(null);
+        const [loadingViewerPage, setLoadingViewerPage] = useState(false);
+        const requestKeyRef = useRef('');
 
-        // Determine API domain - always use 8222 for localhost dev, empty for production
         const domain = document.location.host.includes('localhost') ? 'http://localhost:8222' : '';
+        const currentPageDocs = pageDocs[page] || [];
+        const currentPageHasMore = !!pageHasMore[page];
+        const requestedSearchType = useMemo(
+            () => getRequestedSearchType(searchTypeSelection, vectorSearchEnabled),
+            [searchTypeSelection, vectorSearchEnabled]
+        );
+        const effectiveSearchLabel = query.trim() ? requestedSearchType : 'Browse';
+        const showFacetCounts = requestedSearchType === 'Text' || !query.trim();
+        const searchPlaceholder = getSearchPlaceholder(searchTypeSelection, vectorSearchEnabled);
+
+        useEffect(() => {
+            fetch(`${domain}/capabilities`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load search capabilities');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    setVectorSearchEnabled(!!data.vectorSearchEnabled);
+                })
+                .catch(error => {
+                    setSearchError(error.message || 'Failed to load search capabilities');
+                });
+        }, []);
 
         useEffect(() => {
             fetch(`${domain}/categories`)
@@ -112,22 +485,39 @@
         }, []);
 
         useEffect(() => {
-            // Use 'a' as wildcard when search is empty - matches ~103k results
-            const trimmed = query.trim() || 'a';
-
-            const params = new URLSearchParams();
-            params.set('text', trimmed);
-            params.set('page', String(page));
-
-            if (hasPerson === 'true' || hasPerson === 'false') {
-                params.set('hasPerson', hasPerson);
+            if (!vectorSearchEnabled && searchTypeSelection !== 'Text') {
+                setSearchTypeSelection('Text');
             }
+        }, [vectorSearchEnabled, searchTypeSelection]);
 
-            FILTER_KEYS.forEach(key => {
-                if (filters[key].length > 0) {
-                    params.set(key, filters[key].join(','));
-                }
+        useEffect(() => {
+            window.localStorage.setItem(SEARCH_TYPE_STORAGE_KEY, searchTypeSelection);
+        }, [searchTypeSelection]);
+
+        useEffect(() => {
+            const requestKey = JSON.stringify({
+                query,
+                page,
+                searchType: requestedSearchType,
+                hasPerson,
+                filters,
             });
+            requestKeyRef.current = requestKey;
+            setLoadingPage(true);
+
+            const params = buildSearchParams({
+                query,
+                page,
+                searchType: requestedSearchType,
+                hasPerson,
+                filters,
+            });
+
+            if (page === 0) {
+                setPageDocs({});
+                setPageHasMore({});
+                setViewer(null);
+            }
 
             fetch(`${domain}/image/search?${params.toString()}`)
                 .then(async response => {
@@ -138,19 +528,74 @@
                     return response.json();
                 })
                 .then(data => {
+                    if (requestKeyRef.current !== requestKey) {
+                        return;
+                    }
                     const meta = (data.meta && data.meta.length > 0) ? data.meta[0] : null;
-                    setDocs(data.docs || []);
+                    const docs = data.docs || [];
+                    setPageDocs(previous => ({
+                        ...previous,
+                        [page]: docs,
+                    }));
+                    setPageHasMore(previous => ({
+                        ...previous,
+                        [page]: !!(meta && meta.hasMore),
+                    }));
                     setFacet(meta ? meta.facet : null);
-                    setTotal(meta && meta.count ? meta.count.total : 0);
                     setSearchError('');
+
+                    if (docs.length > 0 && (!viewer || page === 0)) {
+                        setViewer({ page, index: 0 });
+                    }
                 })
                 .catch(error => {
-                    setDocs([]);
+                    if (requestKeyRef.current !== requestKey) {
+                        return;
+                    }
+                    setPageDocs({});
+                    setPageHasMore({});
                     setFacet(null);
-                    setTotal(0);
+                    setViewer(null);
                     setSearchError(error.message || 'Search failed');
+                })
+                .finally(() => {
+                    if (requestKeyRef.current === requestKey) {
+                        setLoadingPage(false);
+                    }
                 });
-        }, [query, page, filters, hasPerson]);
+        }, [query, page, filters, hasPerson, requestedSearchType]);
+
+        function fetchPageData(targetPage) {
+            const params = buildSearchParams({
+                query,
+                page: targetPage,
+                searchType: requestedSearchType,
+                hasPerson,
+                filters,
+            });
+
+            return fetch(`${domain}/image/search?${params.toString()}`)
+                .then(async response => {
+                    if (!response.ok) {
+                        const message = await response.text();
+                        throw new Error(message || `Search failed with status ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const docs = data.docs || [];
+                    const meta = (data.meta && data.meta.length > 0) ? data.meta[0] : null;
+                    setPageDocs(previous => ({
+                        ...previous,
+                        [targetPage]: docs,
+                    }));
+                    setPageHasMore(previous => ({
+                        ...previous,
+                        [targetPage]: !!(meta && meta.hasMore),
+                    }));
+                    return docs;
+                });
+        }
 
         function toggleFilter(key, value, checked) {
             setPage(0);
@@ -173,35 +618,110 @@
             return bucket ? bucket.count : 0;
         }
 
-        function totalPages() {
-            return Math.max(1, Math.ceil(total / 5));
+        function openViewer(pageNumber, indexWithinPage) {
+            setViewer({ page: pageNumber, index: indexWithinPage });
+            setViewMode('Full Screen');
         }
 
-        return (
-            <div tabIndex="0">
-                <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                        <Typography variant="h5" component="h1">
-                            MongoDB Atlas Search Service
-                        </Typography>
-                        <Typography variant="body2" component="p" color="textSecondary">
-                            Search COCO image captions and filter by detected object categories.
-                        </Typography>
-                    </Grid>
+        async function moveViewer(direction) {
+            if (!viewer) {
+                return;
+            }
 
-                    <Grid item xs={12}>
-                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <TextField
-                                sx={{ flexGrow: 1, minWidth: 280 }}
-                                label="Caption Search"
-                                value={query}
-                                onChange={event => {
-                                    setPage(0);
-                                    setQuery(event.target.value);
-                                }}
-                            />
+            const docs = pageDocs[viewer.page] || [];
+            if (direction === 'next' && viewer.index < docs.length - 1) {
+                setViewer({ page: viewer.page, index: viewer.index + 1 });
+                return;
+            }
+            if (direction === 'prev' && viewer.index > 0) {
+                setViewer({ page: viewer.page, index: viewer.index - 1 });
+                return;
+            }
+
+            if (direction === 'next' && !pageHasMore[viewer.page]) {
+                return;
+            }
+
+            const targetPage = direction === 'next' ? viewer.page + 1 : viewer.page - 1;
+            if (targetPage < 0) {
+                return;
+            }
+
+            setLoadingViewerPage(true);
+            try {
+                const nextDocs = pageDocs[targetPage] || await fetchPageData(targetPage);
+                setPage(targetPage);
+                if (nextDocs.length > 0) {
+                    setViewer({
+                        page: targetPage,
+                        index: direction === 'next' ? 0 : Math.max(0, nextDocs.length - 1),
+                    });
+                }
+            } catch (error) {
+                setSearchError(error.message || 'Failed to load more results');
+            } finally {
+                setLoadingViewerPage(false);
+            }
+        }
+
+        const viewerImage = useMemo(() => {
+            if (!viewer) {
+                return null;
+            }
+            const docs = pageDocs[viewer.page] || [];
+            return docs[viewer.index] || null;
+        }, [viewer, pageDocs]);
+
+        const canMovePrev = !!viewer && (viewer.index > 0 || viewer.page > 0);
+        const canMoveNext = !!viewer && viewerImage && (
+            viewer.index < ((pageDocs[viewer.page] || []).length - 1) || !!pageHasMore[viewer.page]
+        );
+
+        return (
+            <div className="app-shell">
+                <header className="toolbar">
+                    <div className="brand-lockup">
+                        <h1 className="brand-title">Atlas Coco</h1>
+                        <div className="brand-subtitle">Caption search, semantic retrieval, and browsable image discovery.</div>
+                    </div>
+                    <div className="toolbar-search">
+                        <TextField
+                            fullWidth
+                            variant="outlined"
+                            label="Search"
+                            placeholder={searchPlaceholder}
+                            value={query}
+                            onChange={event => {
+                                setPage(0);
+                                setQuery(event.target.value);
+                            }}
+                            InputProps={{
+                                style: {
+                                    background: 'rgba(255,255,255,0.88)',
+                                    borderRadius: 18,
+                                    fontSize: '1rem',
+                                }
+                            }}
+                        />
+                    </div>
+                </header>
+
+                <main className="workspace">
+                    <aside className="sidebar">
+                        <div className="filter-group">
+                            <div className="section-label">View</div>
                             <FormControl component="fieldset">
-                                <RadioGroup row value={hasPerson} onChange={event => {
+                                <RadioGroup value={viewMode} onChange={event => setViewMode(event.target.value)}>
+                                    <FormControlLabel value="Full Screen" control={<Radio />} label="Full Screen" />
+                                    <FormControlLabel value="Grid" control={<Radio />} label="Grid" />
+                                </RadioGroup>
+                            </FormControl>
+                        </div>
+
+                        <div className="filter-group">
+                            <div className="section-label">People Filter</div>
+                            <FormControl component="fieldset">
+                                <RadioGroup value={hasPerson} onChange={event => {
                                     setPage(0);
                                     setHasPerson(event.target.value);
                                 }}>
@@ -210,74 +730,167 @@
                                     <FormControlLabel value="false" control={<Radio />} label="No Person" />
                                 </RadioGroup>
                             </FormControl>
-                        </Box>
-                        <Box sx={{ marginTop: 1 }}>
-                            <Typography color="error">{searchError}</Typography>
-                        </Box>
-                    </Grid>
+                        </div>
 
-                    <Grid item xs={12} md={3}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <div className="filter-group">
+                            <div className="section-label">Categories</div>
                             {FILTER_KEYS.map(key => (
-                                <Box key={key}>
-                                    <Typography color="textSecondary">{toTitleCase(key)}</Typography>
+                                <Box key={key} sx={{ marginBottom: 2 }}>
+                                    <Typography style={{ fontWeight: 800, marginBottom: 6 }}>{toTitleCase(key)}</Typography>
                                     {optionsByFilter[key].map(value => (
-                                        <FormControl key={`${key}.${value}`}>
+                                        <FormControl key={`${key}.${value}`} style={{ display: 'block' }}>
                                             <FormControlLabel
                                                 control={
                                                     <Checkbox
                                                         checked={filters[key].includes(value)}
                                                         onChange={event => toggleFilter(key, value, event.target.checked)}
-                                                        name={`${key}.${value}`}
                                                     />
                                                 }
-                                                label={`${value} (${facetCount(key, value)})`}
+                                                label={showFacetCounts ? `${value} (${facetCount(key, value)})` : value}
                                             />
                                         </FormControl>
                                     ))}
                                 </Box>
                             ))}
-                        </Box>
-                    </Grid>
+                        </div>
 
-                    <Grid item xs={12} md={9}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
-                            <Typography variant="subtitle1">{`Results: ${total}`}</Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Button variant="outlined" disabled={page === 0} onClick={() => setPage(page - 1)}>
-                                    Previous
-                                </Button>
-                                <Typography variant="body2">{`Page ${page + 1} / ${totalPages()}`}</Typography>
-                                <Button
-                                    variant="outlined"
-                                    disabled={page + 1 >= totalPages()}
-                                    onClick={() => setPage(page + 1)}
-                                >
-                                    Next
-                                </Button>
-                            </Box>
-                        </Box>
+                        {vectorSearchEnabled && (
+                            <div className="filter-group">
+                                <div className="section-label">Search Type</div>
+                                <FormControl component="fieldset">
+                                    <RadioGroup value={searchTypeSelection} onChange={event => {
+                                        setPage(0);
+                                        setSearchTypeSelection(event.target.value);
+                                    }}>
+                                        <FormControlLabel value="Text" control={<Radio />} label="Text" />
+                                        <FormControlLabel value="Vector" control={<Radio />} label="Vector" />
+                                        <FormControlLabel value="Combined" control={<Radio />} label="Combined" />
+                                    </RadioGroup>
+                                </FormControl>
+                            </div>
+                        )}
+                    </aside>
 
-                        {docs.map(image => (
-                            <div key={`image.${image._id}`} className="result-row">
-                                <img className="result-image" src={image.url} alt={image.caption} />
-                                <Box>
-                                    <Typography variant="body1">{image.caption}</Typography>
-                                    <Typography variant="body2" color="textSecondary">
-                                        {image.hasPerson ? 'Contains a person' : 'No person detected'}
+                    <section className="content-panel">
+                        <div className="content-header">
+                            <div>
+                                <Typography variant="h6" style={{ fontFamily: 'Fraunces, serif' }}>
+                                    {viewMode === 'Grid' ? 'Search Results' : 'Focused Result'}
+                                </Typography>
+                                <Typography variant="body2" color="textSecondary">
+                                    {vectorSearchEnabled
+                                        ? `${effectiveSearchLabel} - ${PAGE_SIZE} per page`
+                                        : `${PAGE_SIZE} per page`}
+                                </Typography>
+                                {searchError && (
+                                    <Typography variant="body2" style={{ color: '#b00020', marginTop: 6 }}>
+                                        {searchError}
                                     </Typography>
-                                    <Box sx={{ marginTop: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                        {FILTER_KEYS.map(key =>
-                                            (image[key] || []).map(value => (
-                                                <Chip key={`${image._id}.${key}.${value}`} size="small" label={`${key}: ${value}`} />
-                                            ))
-                                        )}
+                                )}
+                            </div>
+
+                            <div className="nav-row">
+                                {loadingPage && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <CircularProgress size={18} />
+                                        <Typography variant="body2" color="textSecondary">Refreshing</Typography>
                                     </Box>
+                                )}
+
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Button variant="outlined" disabled={page === 0} onClick={() => setPage(page - 1)}>
+                                        Previous
+                                    </Button>
+                                    <Button variant="outlined" disabled={!currentPageHasMore} onClick={() => setPage(page + 1)}>
+                                        Next
+                                    </Button>
                                 </Box>
                             </div>
-                        ))}
-                    </Grid>
-                </Grid>
+                        </div>
+
+                        <div className="results-body">
+                            {viewMode === 'Grid' ? (
+                                <div className="results-grid">
+                                    {currentPageDocs.map((image, index) => (
+                                        <article
+                                            key={`image.${image._id}`}
+                                            className="result-card"
+                                            onClick={() => openViewer(page, index)}
+                                        >
+                                            <img className="result-thumb" src={image.url} alt={image.caption} />
+                                            <div className="result-caption">{image.caption}</div>
+                                            <div className="card-meta">
+                                                {image.hasPerson ? 'Contains a person' : 'No person detected'}
+                                            </div>
+                                            <div className="card-meta">{`${image.width} x ${image.height}`}</div>
+                                            <div className="chip-cloud">
+                                                {FILTER_KEYS.flatMap(key =>
+                                                    (image[key] || []).map(value => (
+                                                        <Chip
+                                                            key={`${image._id}.${key}.${value}`}
+                                                            size="small"
+                                                            label={`${key}: ${value}`}
+                                                        />
+                                                    ))
+                                                )}
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                            ) : viewerImage ? (
+                                <div className="full-screen-view">
+                                    <div className="full-screen-stage">
+                                        <img className="full-screen-image" src={viewerImage.url} alt={viewerImage.caption} />
+                                    </div>
+
+                                    <div className="full-screen-sidebar">
+                                        <div className="nav-row">
+                                            <Button variant="outlined" disabled={!canMovePrev || loadingViewerPage} onClick={() => moveViewer('prev')}>
+                                                Previous
+                                            </Button>
+                                            <Button variant="outlined" disabled={!canMoveNext || loadingViewerPage} onClick={() => moveViewer('next')}>
+                                                Next
+                                            </Button>
+                                        </div>
+
+                                        <h2 className="full-screen-caption">{viewerImage.caption}</h2>
+
+                                        <div className="full-screen-meta">
+                                            <div>{viewerImage.hasPerson ? 'Contains a person' : 'No person detected'}</div>
+                                            <div>{`${viewerImage.width} x ${viewerImage.height}`}</div>
+                                        </div>
+
+                                        <div className="chip-cloud">
+                                            {FILTER_KEYS.flatMap(key =>
+                                                (viewerImage[key] || []).map(value => (
+                                                    <Chip
+                                                        key={`viewer.${viewerImage._id}.${key}.${value}`}
+                                                        label={`${key}: ${value}`}
+                                                    />
+                                                ))
+                                            )}
+                                        </div>
+
+                                        {loadingViewerPage && (
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <CircularProgress size={18} />
+                                                <Typography variant="body2" color="textSecondary">
+                                                    Loading more results…
+                                                </Typography>
+                                            </Box>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <Box sx={{ paddingTop: 4 }}>
+                                    <Typography variant="body1" color="textSecondary">
+                                        Select a result to inspect it in full-screen mode.
+                                    </Typography>
+                                </Box>
+                            )}
+                        </div>
+                    </section>
+                </main>
             </div>
         );
     }

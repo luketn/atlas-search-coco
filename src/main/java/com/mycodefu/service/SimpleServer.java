@@ -7,8 +7,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
@@ -44,14 +47,16 @@ public class SimpleServer {
         log.info("Server completed shutting down.");
     }
 
-    private static Map<String, String> parseQueryString(String query) {
-        Map<String, String> queryParameters = new HashMap<>();
+    private static Map<String, List<String>> parseQueryString(String query) {
+        Map<String, List<String>> queryParameters = new HashMap<>();
         String[] pairs = query.split("&");
         for (String pair : pairs) {
             int idx = pair.indexOf("=");
             String key = idx > 0 ? pair.substring(0, idx) : pair;
             String value = idx > 0 && pair.length() > idx + 1 ? pair.substring(idx + 1) : null;
-            queryParameters.put(key, value);
+            String decodedKey = URLDecoder.decode(key, StandardCharsets.UTF_8);
+            String decodedValue = value == null ? null : URLDecoder.decode(value, StandardCharsets.UTF_8);
+            queryParameters.computeIfAbsent(decodedKey, ignored -> new ArrayList<>()).add(decodedValue);
         }
         return queryParameters;
     }
@@ -78,11 +83,11 @@ public class SimpleServer {
             return this;
         }
 
-        public SimpleServerBuilder addGetHandler(String path, Function<Map<String,String>, String> handler) {
+        public SimpleServerBuilder addGetHandler(String path, Function<Map<String,List<String>>, String> handler) {
             server.createContext(path, exchange -> {
                 try {
                     String query = exchange.getRequestURI().getQuery();
-                    Map<String, String> queryParameters;
+                    Map<String, List<String>> queryParameters;
                     if (query != null) {
                         queryParameters = parseQueryString(query);
                     } else {
@@ -105,9 +110,13 @@ public class SimpleServer {
                     exchange.getResponseBody().write(bytes);
                     exchange.close();
 
-                } catch (IOException e) {
+                } catch (Exception e) {
                     log.error("Error handling request", e);
-                    throw new RuntimeException(e);
+                    byte[] bytes = ("Error handling request: " + e.getMessage()).getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().add("Content-Type", "text/plain");
+                    exchange.sendResponseHeaders(500, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
                 }
             });
             return this;

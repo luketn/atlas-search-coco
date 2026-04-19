@@ -11,8 +11,7 @@ public record ImageSearchResult(List<Image> docs, List<ImageMeta> meta, QuerySta
         return new ImageSearchResult(docs, meta, stats);
     }
 
-    public record ImageMeta (ImageMetaTotal count, ImageMetaFacets facet) { }
-    public record ImageMetaTotal (long total) { }
+    public record ImageMeta (Boolean hasMore, ImageMetaFacets facet) { }
     public record ImageMetaFacets (
             ImageMetaFacet accessory,
             ImageMetaFacet animal,

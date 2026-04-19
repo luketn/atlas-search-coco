@@ -1,32 +1,31 @@
 package com.mycodefu.mongodb;
 
+import com.mongodb.MongoCommandException;
 import com.mongodb.client.AggregateIterable;
-import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.Aggregates;
-import com.mongodb.client.model.Facet;
-import com.mongodb.client.model.search.*;
-import com.mycodefu.datapreparation.util.JsonUtil;
+import com.mycodefu.lmstudio.LMStudioEmbedding;
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.model.QueryStats;
 import com.mycodefu.mongodb.atlas.MongoConnection;
 import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
+import com.mycodefu.mongodb.atlas.MongoConnectionTracingLogResult;
+import com.mycodefu.mongodb.atlas.MongoConnectionTracingLogSearch;
+import com.mycodefu.mongodb.search.SearchPipelines;
+import com.mycodefu.mongodb.search.SearchPlanner;
+import com.mycodefu.mongodb.search.SearchRequest;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.bson.json.JsonWriterSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 import static com.mongodb.client.model.Filters.eq;
-import static com.mongodb.client.model.search.SearchFacet.stringFacet;
-import static com.mongodb.client.model.search.SearchPath.fieldPath;
 import static com.mycodefu.mongodb.atlas.MongoConnection.database_name;
 
 public class ImageDataAccess implements AutoCloseable {
@@ -34,13 +33,15 @@ public class ImageDataAccess implements AutoCloseable {
 
     public static final String collection_name = "image";
 
-    private final MongoClient mongoClient;
+    private static volatile VectorSearchIndexState cachedVectorSearchIndexState;
+
     private final MongoCollection<Image> imageCollection;
+    private final MongoCollection<Document> imageDocumentCollection;
 
     public ImageDataAccess(MongoClient mongoClient, String databaseName, String collectionName) {
-        this.mongoClient = mongoClient;
         MongoDatabase database = mongoClient.getDatabase(databaseName);
         this.imageCollection = database.getCollection(collectionName, Image.class);
+        this.imageDocumentCollection = database.getCollection(collectionName);
     }
 
     public static ImageDataAccess getInstance() {
@@ -67,125 +68,129 @@ public class ImageDataAccess implements AutoCloseable {
         imageCollection.deleteMany(new Document());
     }
 
-    public ImageSearchResult search(String text, Integer page, Boolean hasPerson, List<String> animal, List<String> appliance, List<String> electronic, List<String> food, List<String> furniture, List<String> indoor, List<String> kitchen, List<String> outdoor, List<String> sports, List<String> vehicle) {
-        List<SearchOperator> clauses = new ArrayList<>();
+    public VectorSearchIndexState refreshVectorSearchIndexState() {
+        cachedVectorSearchIndexState = loadVectorSearchIndexState();
+        return cachedVectorSearchIndexState;
+    }
 
-        int skip = 0;
-        int pageSize = 5;
-        if (page != null) {
-            skip = page * pageSize;
+    public ImageSearchResult search(SearchRequest request) {
+        VectorSearchIndexState vectorSearchIndexState = vectorSearchIndexState();
+        return switch (SearchPlanner.plan(request, vectorSearchIndexState.available())) {
+            case TEXT -> executeSearch(SearchPipelines.textSearchPipeline(request));
+            case VECTOR -> executeSearch(SearchPipelines.vectorSearchPipeline(
+                    request,
+                    LMStudioEmbedding.embed(request.text()).embedding()
+            ));
+            case COMBINED -> executeSearch(SearchPipelines.combinedSearchPipeline(
+                    request,
+                    LMStudioEmbedding.embed(request.text()).embedding()
+            ));
+        };
+    }
+
+    private ImageSearchResult executeSearch(List<? extends Bson> aggregateStages) {
+        return aggregateSearchResult(imageCollection.aggregate(aggregateStages, ImageSearchResult.class), aggregateStages);
+    }
+
+    private VectorSearchIndexState vectorSearchIndexState() {
+        VectorSearchIndexState current = cachedVectorSearchIndexState;
+        if (current == null) {
+            current = refreshVectorSearchIndexState();
         }
-        if (text != null) {
-            clauses.add(SearchOperator
-                    .text(
-                            fieldPath("caption"),
-                            text
-                    )
-            );
-        }
-        if (hasPerson != null) {
-            clauses.add(equals("hasPerson", hasPerson));
-        }
-        BiConsumer<String, List<String>> addConditional = (String category, List<String> values) -> {
-            if (values != null) {
-                for (String value : values) {
-                    // convert any characters that were http serialised
-                    String realValue = value
-                            .replaceAll("%2C", ",")
-                            .replaceAll("%20", " ")
-                            .replaceAll("\\+", " ")
-                    ;
-                    clauses.add(equals(category, realValue));
+        return current;
+    }
+
+    private VectorSearchIndexState loadVectorSearchIndexState() {
+        try {
+            for (Document indexDocument : imageDocumentCollection.listSearchIndexes()) {
+                if (MongoConnection.vector_index_name.equals(indexDocument.getString("name"))
+                        && "READY".equals(indexDocument.getString("status"))) {
+                    return new VectorSearchIndexState(true);
                 }
             }
-        };
-        addConditional.accept("animal", animal);
-        addConditional.accept("appliance", appliance);
-        addConditional.accept("electronic", electronic);
-        addConditional.accept("food", food);
-        addConditional.accept("furniture", furniture);
-        addConditional.accept("indoor", indoor);
-        addConditional.accept("kitchen", kitchen);
-        addConditional.accept("outdoor", outdoor);
-        addConditional.accept("sports", sports);
-        addConditional.accept("vehicle", vehicle);
+            return VectorSearchIndexState.unavailable();
+        } catch (MongoCommandException e) {
+            log.warn("Search index management service unavailable while detecting vector search index. " +
+                    "Starting with vector search disabled.", e);
+            return VectorSearchIndexState.unavailable();
+        }
+    }
 
-        List<Bson> aggregateStages = List.of(
-                Aggregates.search(
-                        SearchCollector.facet(
-                                SearchOperator.compound().filter(clauses),
-                                List.of(
-                                        stringFacet("animal", fieldPath("animal")).numBuckets(10),
-                                        stringFacet("appliance", fieldPath("appliance")).numBuckets(10),
-                                        stringFacet("electronic", fieldPath("electronic")).numBuckets(10),
-                                        stringFacet("food", fieldPath("food")).numBuckets(10),
-                                        stringFacet("furniture", fieldPath("furniture")).numBuckets(10),
-                                        stringFacet("indoor", fieldPath("indoor")).numBuckets(10),
-                                        stringFacet("kitchen", fieldPath("kitchen")).numBuckets(10),
-                                        stringFacet("outdoor", fieldPath("outdoor")).numBuckets(10),
-                                        stringFacet("sports", fieldPath("sports")).numBuckets(10),
-                                        stringFacet("vehicle", fieldPath("vehicle")).numBuckets(10)
-                                )
-                        ), SearchOptions.searchOptions().count(SearchCount.total())),
-                Aggregates.skip(skip),
-                Aggregates.limit(pageSize),
-                Aggregates.facet(
-                        new Facet("docs", List.of()),
-                        new Facet("meta", List.of(
-                                Aggregates.replaceWith("$$SEARCH_META"),
-                                Aggregates.limit(1)
-                        ))
-                )
-
+    private ImageSearchResult aggregateSearchResult(AggregateIterable<ImageSearchResult> aggregateCursor, List<? extends Bson> aggregateStages) {
+        AggregateExecutionResult<ImageSearchResult> executionResult = executeAggregate(
+                aggregateCursor,
+                aggregateStages,
+                MongoCursor::tryNext,
+                true
         );
 
-        if (log.isTraceEnabled()) {
-            for (Bson aggregateStage : aggregateStages) {
-                System.out.println(aggregateStage.toBsonDocument().toJson(JsonWriterSettings.builder().indent(true).build()));
-            }
+        ImageSearchResult aggregateResult = executionResult.value();
+        ImageSearchResult imageSearchResult = normaliseSearchResult(aggregateResult, executionResult.stats());
+        MongoConnectionTracingLogResult.trace(imageSearchResult);
+        return imageSearchResult;
+    }
+
+    private ImageSearchResult normaliseSearchResult(ImageSearchResult aggregateResult, QueryStats stats) {
+        if (aggregateResult == null) {
+            return new ImageSearchResult(
+                    List.of(),
+                    List.of(new ImageSearchResult.ImageMeta(false, null)),
+                    stats
+            );
         }
 
-        AggregateIterable<ImageSearchResult> aggregateCursor = imageCollection.aggregate(aggregateStages, ImageSearchResult.class);
+        List<Image> docs = aggregateResult.docs() == null ? List.of() : aggregateResult.docs();
+        boolean hasMore = docs.size() > SearchPipelines.pageSize();
+        List<Image> pageDocs = hasMore ? List.copyOf(docs.subList(0, SearchPipelines.pageSize())) : docs;
+        ImageSearchResult.ImageMeta aggregateMeta = aggregateResult.meta() == null || aggregateResult.meta().isEmpty()
+                ? null
+                : aggregateResult.meta().getFirst();
+        ImageSearchResult.ImageMeta meta = new ImageSearchResult.ImageMeta(
+                hasMore,
+                aggregateMeta == null ? null : aggregateMeta.facet()
+        );
+        return new ImageSearchResult(pageDocs, List.of(meta), stats);
+    }
+
+    private <T, R> AggregateExecutionResult<R> executeAggregate(
+            AggregateIterable<T> aggregateCursor,
+            List<? extends Bson> aggregateStages,
+            Function<MongoCursor<T>, R> reader,
+            boolean collectStats
+    ) {
+        MongoConnectionTracingLogSearch.trace(aggregateStages);
+
         String traceId = null;
         if (MongoConnectionTracing.isTracingEnabled()) {
             traceId = MongoConnectionTracing.newTraceId();
             aggregateCursor.comment(MongoConnectionTracing.toTraceComment(traceId));
         }
 
-        ImageSearchResult aggregateResult;
         QueryStats stats = null;
-        try (MongoCursor<ImageSearchResult> cursor = aggregateCursor.cursor()) {
+        R value;
+        try (MongoCursor<T> cursor = aggregateCursor.cursor()) {
             if (traceId != null) {
                 MongoConnectionTracing.registerCursorTrace(cursor, traceId);
             }
-            aggregateResult = cursor.tryNext();
-            if (traceId != null) {
+            value = reader.apply(cursor);
+            if (collectStats && traceId != null) {
                 stats = MongoConnectionTracing.getQueryStats(cursor);
             }
         }
-
-        ImageSearchResult imageSearchResult = aggregateResult == null
-                ? null
-                : aggregateResult.withStats(stats);
-
-        if (log.isTraceEnabled()) {
-            String json = JsonUtil.writeToString(imageSearchResult);
-            log.trace(json);
-        }
-
-        return imageSearchResult;
+        return new AggregateExecutionResult<>(value, stats);
     }
 
-    private static SearchOperator equals(String fieldName, Object value) {
-        return SearchOperator.of(
-                new Document("equals", new Document()
-                        .append("path", fieldName)
-                        .append("value", value)
-                ));
-    }
-
+    @Override
     public void close() {
-        mongoClient.close();
+        // MongoConnection manages the shared client lifecycle for the app.
     }
 
+    private record AggregateExecutionResult<T>(T value, QueryStats stats) {
+    }
+
+    public record VectorSearchIndexState(boolean available) {
+        private static VectorSearchIndexState unavailable() {
+            return new VectorSearchIndexState(false);
+        }
+    }
 }

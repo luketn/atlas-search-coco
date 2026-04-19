@@ -7,6 +7,8 @@ public record Image(
         int _id,
         //The caption describes the contents of the image and can be searched on using full text search.
         String caption,
+        List<Double> captionEmbedding,
+        String captionEmbeddingModel,
         String url,
         int height,
         int width,

@@ -14,7 +14,14 @@
     ],
     "outdoor": [
       "bench"
-    ]
+    ],
+    "captionEmbedding": [
+      1.0,
+      0.2,
+      0.0,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 407368,
@@ -28,7 +35,14 @@
     "hasPerson": true,
     "animal": [
       "bear"
-    ]
+    ],
+    "captionEmbedding": [
+      0.95,
+      0.05,
+      0.0,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 553162,
@@ -42,7 +56,14 @@
     "hasPerson": false,
     "animal": [
       "bear"
-    ]
+    ],
+    "captionEmbedding": [
+      0.95,
+      0.05,
+      0.0,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 330262,
@@ -56,7 +77,14 @@
     "hasPerson": false,
     "animal": [
       "bear"
-    ]
+    ],
+    "captionEmbedding": [
+      0.95,
+      0.05,
+      0.0,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 262986,
@@ -70,7 +98,14 @@
     "hasPerson": false,
     "animal": [
       "bear"
-    ]
+    ],
+    "captionEmbedding": [
+      0.95,
+      0.05,
+      0.0,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 292435,
@@ -87,7 +122,14 @@
     ],
     "outdoor": [
       "bench"
-    ]
+    ],
+    "captionEmbedding": [
+      0.95,
+      0.05,
+      0.0,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 77187,
@@ -101,7 +143,14 @@
     "hasPerson": false,
     "animal": [
       "bear"
-    ]
+    ],
+    "captionEmbedding": [
+      0.95,
+      0.05,
+      0.0,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 479057,
@@ -115,7 +164,14 @@
     "hasPerson": false,
     "animal": [
       "bear"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 13843,
@@ -129,7 +185,14 @@
     "hasPerson": false,
     "animal": [
       "bear"
-    ]
+    ],
+    "captionEmbedding": [
+      0.95,
+      0.05,
+      0.0,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 357386,
@@ -143,7 +206,14 @@
     "hasPerson": false,
     "animal": [
       "bear"
-    ]
+    ],
+    "captionEmbedding": [
+      0.95,
+      0.05,
+      0.0,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 515289,
@@ -163,7 +233,14 @@
     ],
     "vehicle": [
       "bicycle"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      1.0,
+      0.15,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 462341,
@@ -180,7 +257,14 @@
     ],
     "indoor": [
       "clock"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      1.0,
+      0.15,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 527040,
@@ -202,7 +286,14 @@
     "kitchen": [
       "cup",
       "bowl"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      1.0,
+      0.15,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 350341,
@@ -223,7 +314,14 @@
     ],
     "kitchen": [
       "bowl"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 545959,
@@ -239,7 +337,14 @@
       "bird",
       "sheep",
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 163020,
@@ -253,7 +358,14 @@
     "hasPerson": false,
     "animal": [
       "bird"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 281455,
@@ -267,7 +379,14 @@
     "hasPerson": false,
     "animal": [
       "bird"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      1.0,
+      0.15,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 17756,
@@ -284,7 +403,14 @@
     ],
     "vehicle": [
       "boat"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 155885,
@@ -301,7 +427,14 @@
     ],
     "vehicle": [
       "boat"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      1.0,
+      0.15,
+      0.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 231408,
@@ -316,7 +449,14 @@
     "animal": [
       "bird",
       "cat"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 574769,
@@ -352,7 +492,14 @@
       "bottle",
       "spoon",
       "bowl"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 562150,
@@ -369,7 +516,14 @@
     ],
     "vehicle": [
       "bicycle"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 565797,
@@ -386,7 +540,14 @@
     ],
     "vehicle": [
       "car"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 241876,
@@ -403,7 +564,14 @@
     ],
     "furniture": [
       "toilet"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 117407,
@@ -417,7 +585,14 @@
     "hasPerson": false,
     "animal": [
       "cat"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 191738,
@@ -434,7 +609,14 @@
     ],
     "furniture": [
       "couch"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 146411,
@@ -448,7 +630,14 @@
     "hasPerson": false,
     "animal": [
       "cat"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 205103,
@@ -462,7 +651,14 @@
     "hasPerson": false,
     "animal": [
       "cat"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 324383,
@@ -485,7 +681,14 @@
     ],
     "indoor": [
       "book"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 224861,
@@ -505,7 +708,14 @@
     ],
     "indoor": [
       "book"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 184613,
@@ -522,7 +732,14 @@
     ],
     "animal": [
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 472795,
@@ -546,7 +763,14 @@
     ],
     "indoor": [
       "book"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 182784,
@@ -575,7 +799,14 @@
     "vehicle": [
       "bicycle",
       "motorcycle"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 190767,
@@ -589,7 +820,14 @@
     "hasPerson": false,
     "animal": [
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 490081,
@@ -603,7 +841,14 @@
     "hasPerson": true,
     "animal": [
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 571034,
@@ -617,7 +862,14 @@
     "hasPerson": true,
     "animal": [
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 89668,
@@ -631,7 +883,14 @@
     "hasPerson": false,
     "animal": [
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 535292,
@@ -645,7 +904,14 @@
     "hasPerson": false,
     "animal": [
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 168706,
@@ -659,7 +925,14 @@
     "hasPerson": false,
     "animal": [
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 414679,
@@ -673,7 +946,14 @@
     "hasPerson": false,
     "animal": [
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 173350,
@@ -690,7 +970,14 @@
     ],
     "furniture": [
       "toilet"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 281533,
@@ -710,7 +997,14 @@
     ],
     "furniture": [
       "potted plant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 334321,
@@ -731,7 +1025,14 @@
     ],
     "outdoor": [
       "bench"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 93201,
@@ -745,7 +1046,14 @@
     "hasPerson": false,
     "animal": [
       "dog"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 183757,
@@ -760,7 +1068,14 @@
     "animal": [
       "dog",
       "cat"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 437609,
@@ -775,7 +1090,14 @@
     "animal": [
       "dog",
       "cow"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 143824,
@@ -796,7 +1118,14 @@
     ],
     "furniture": [
       "potted plant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.0,
+      0.0,
+      1.0,
+      0.1
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 400,
@@ -813,7 +1142,14 @@
     ],
     "vehicle": [
       "boat"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 245201,
@@ -830,7 +1166,14 @@
     ],
     "vehicle": [
       "boat"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 227227,
@@ -847,7 +1190,14 @@
     ],
     "vehicle": [
       "car"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 384553,
@@ -861,7 +1211,14 @@
     "hasPerson": true,
     "animal": [
       "elephant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 178592,
@@ -876,7 +1233,14 @@
     "animal": [
       "elephant",
       "zebra"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 109819,
@@ -899,7 +1263,14 @@
       "motorcycle",
       "bus",
       "truck"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 242499,
@@ -913,7 +1284,14 @@
     "hasPerson": true,
     "animal": [
       "elephant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 105975,
@@ -927,7 +1305,14 @@
     "hasPerson": false,
     "animal": [
       "elephant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 511204,
@@ -941,7 +1326,14 @@
     "hasPerson": true,
     "animal": [
       "elephant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 260166,
@@ -955,7 +1347,14 @@
     "hasPerson": true,
     "animal": [
       "elephant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 207264,
@@ -969,7 +1368,14 @@
     "hasPerson": false,
     "animal": [
       "elephant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 370043,
@@ -983,7 +1389,14 @@
     "hasPerson": false,
     "animal": [
       "elephant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 307936,
@@ -997,7 +1410,14 @@
     "hasPerson": false,
     "animal": [
       "elephant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 281221,
@@ -1011,7 +1431,14 @@
     "hasPerson": false,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 511058,
@@ -1025,7 +1452,14 @@
     "hasPerson": false,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 91227,
@@ -1039,7 +1473,14 @@
     "hasPerson": false,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 207797,
@@ -1053,7 +1494,14 @@
     "hasPerson": false,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 179558,
@@ -1067,7 +1515,14 @@
     "hasPerson": false,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 15085,
@@ -1081,7 +1536,14 @@
     "hasPerson": false,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 467522,
@@ -1095,7 +1557,14 @@
     "hasPerson": false,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 40102,
@@ -1109,7 +1578,14 @@
     "hasPerson": false,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 403020,
@@ -1123,7 +1599,14 @@
     "hasPerson": false,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 6005,
@@ -1137,7 +1620,14 @@
     "hasPerson": true,
     "animal": [
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 138246,
@@ -1151,7 +1641,14 @@
     "hasPerson": false,
     "animal": [
       "horse"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 197254,
@@ -1165,7 +1662,14 @@
     "hasPerson": true,
     "animal": [
       "horse"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 37675,
@@ -1179,7 +1683,14 @@
     "hasPerson": true,
     "animal": [
       "horse"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 62790,
@@ -1196,7 +1707,14 @@
     ],
     "electronic": [
       "cell phone"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 129637,
@@ -1210,7 +1728,14 @@
     "hasPerson": false,
     "animal": [
       "horse"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 307569,
@@ -1224,7 +1749,14 @@
     "hasPerson": true,
     "animal": [
       "horse"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 181962,
@@ -1238,7 +1770,14 @@
     "hasPerson": true,
     "animal": [
       "horse"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 62151,
@@ -1252,7 +1791,14 @@
     "hasPerson": false,
     "animal": [
       "horse"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 353807,
@@ -1275,7 +1821,14 @@
     ],
     "vehicle": [
       "car"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 248468,
@@ -1292,7 +1845,14 @@
     ],
     "vehicle": [
       "train"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 354533,
@@ -1309,7 +1869,14 @@
     ],
     "vehicle": [
       "motorcycle"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 580746,
@@ -1323,7 +1890,14 @@
     "hasPerson": false,
     "animal": [
       "sheep"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 233560,
@@ -1337,7 +1911,14 @@
     "hasPerson": false,
     "animal": [
       "sheep"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 290570,
@@ -1354,7 +1935,14 @@
     ],
     "outdoor": [
       "bench"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 156397,
@@ -1368,7 +1956,14 @@
     "hasPerson": false,
     "animal": [
       "sheep"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 173574,
@@ -1382,7 +1977,14 @@
     "hasPerson": false,
     "animal": [
       "sheep"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 155877,
@@ -1396,7 +1998,14 @@
     "hasPerson": false,
     "animal": [
       "sheep"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 197461,
@@ -1410,7 +2019,14 @@
     "hasPerson": false,
     "animal": [
       "sheep"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 98416,
@@ -1424,7 +2040,14 @@
     "hasPerson": false,
     "animal": [
       "sheep"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 78522,
@@ -1438,7 +2061,14 @@
     "hasPerson": false,
     "animal": [
       "sheep"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 28758,
@@ -1453,7 +2083,14 @@
     "animal": [
       "zebra",
       "giraffe"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 73830,
@@ -1471,7 +2108,14 @@
     ],
     "outdoor": [
       "bench"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 66800,
@@ -1486,7 +2130,14 @@
     "animal": [
       "zebra",
       "elephant"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 155743,
@@ -1500,7 +2151,14 @@
     "hasPerson": false,
     "animal": [
       "zebra"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 180447,
@@ -1514,7 +2172,14 @@
     "hasPerson": false,
     "animal": [
       "zebra"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 75162,
@@ -1528,7 +2193,14 @@
     "hasPerson": false,
     "animal": [
       "zebra"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 16716,
@@ -1542,7 +2214,14 @@
     "hasPerson": false,
     "animal": [
       "zebra"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 443591,
@@ -1556,7 +2235,14 @@
     "hasPerson": false,
     "animal": [
       "zebra"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 344860,
@@ -1570,7 +2256,14 @@
     "hasPerson": false,
     "animal": [
       "zebra"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   },
   {
     "_id": 235914,
@@ -1584,6 +2277,13 @@
     "hasPerson": false,
     "animal": [
       "zebra"
-    ]
+    ],
+    "captionEmbedding": [
+      0.05,
+      0.05,
+      0.05,
+      1.0
+    ],
+    "captionEmbeddingModel": "sample-test-vector-v1"
   }
 ]

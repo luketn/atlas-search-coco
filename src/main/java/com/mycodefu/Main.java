@@ -5,15 +5,19 @@ import com.mycodefu.model.Category;
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.model.QueryStats;
+import com.mycodefu.model.SearchCapabilities;
+import com.mycodefu.model.SearchType;
 import com.mycodefu.mongodb.CategoryDataAccess;
 import com.mycodefu.mongodb.ImageDataAccess;
+import com.mycodefu.mongodb.search.SearchFilters;
+import com.mycodefu.mongodb.search.SearchRequest;
 import com.mycodefu.service.SimpleServer;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.function.Function;
 
 import static com.mycodefu.datapreparation.PrepareDataEntryPoint.downloadAndInitialiseDataset;
 
@@ -22,78 +26,78 @@ public class Main {
 
     public static void main(String[] args) throws IOException {
         if (args.length > 0) {
-            switch(args[0]) {
-                case "--loadData":
-                    downloadAndInitialiseDataset();
-                    break;
-                default:
-                    System.out.println("Unsupported argument. Supported arguments: --loadData");
+            switch (args[0]) {
+                case "--loadData" -> downloadAndInitialiseDataset(false);
+                case "--lmStudioVectorEmbeddings" -> downloadAndInitialiseDataset(true);
+                default -> System.out.println("Unsupported argument. Supported arguments: --loadData, --lmStudioVectorEmbeddings");
             }
         }
 
+        boolean vectorSearchEnabledAtStartup;
+        try (ImageDataAccess imageDataAccess = ImageDataAccess.getInstance()) {
+            vectorSearchEnabledAtStartup = imageDataAccess.refreshVectorSearchIndexState().available();
+        }
+
+        SearchCapabilities searchCapabilities = new SearchCapabilities(vectorSearchEnabledAtStartup);
+
+        CategoryDataAccess categoryDataAccess = CategoryDataAccess.getInstance();
+        ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+
         SimpleServer server = SimpleServer.create(8222)
-                .addGetHandler("/", params -> {
+                .addGetHandler("/", _ -> {
                     try {
-                        return new String(Main.class.getResourceAsStream("/static/index.html")
-                                .readAllBytes());
+                        return new String(Main.class.getResourceAsStream("/static/index.html").readAllBytes());
                     } catch (IOException e) {
                         return "Error loading index.html: " + e.getMessage();
                     }
                 })
-                .addGetHandler("/categories", params -> {
-                    List<Category> categories = CategoryDataAccess.getInstance().list();
+                .addGetHandler("/capabilities", _ -> JsonUtil.writeToString(searchCapabilities))
+                .addGetHandler("/categories", _ -> {
+                    List<Category> categories = categoryDataAccess.list();
                     return JsonUtil.writeToString(categories);
                 })
                 .addGetHandler("/image", params -> {
-                    String id = params.get("id");
+                    String id = firstParam(params, "id");
                     if (id == null) {
                         return "Please provide an id parameter";
                     }
-                    Image image = ImageDataAccess.getInstance().get(Integer.parseInt(id));
+                    Image image = imageDataAccess.get(Integer.parseInt(id));
                     return JsonUtil.writeToString(image);
                 })
                 .addGetHandler("/image/search", params -> {
                     long javaStartedAtNanos = System.nanoTime();
-                    String text = params.get("text");
-                    if (text == null) {
-                        return "Please provide a text parameter";
+                    String text = firstParam(params, "text");
+
+                    SearchType searchType = parseSearchType(params);
+                    if (searchType != SearchType.Text && !searchCapabilities.vectorSearchEnabled()) {
+                        return "Vector search is unavailable because the vector search index was not present at startup.";
                     }
-                    int page;
-                    if (params.containsKey("page")) {
-                        page = Integer.parseInt(params.get("page"));
-                    } else {
-                        page = 0;
-                    }
-                    Function<String, Boolean> booleanParam = (String key) -> {
-                        if (params.containsKey(key)) {
-                            return Boolean.parseBoolean(params.get(key));
-                        } else {
-                            return null;
-                        }
-                    };
-                    Function<String, List<String>> listParam = (String key) -> {
-                        if (params.containsKey(key)) {
-                            return List.of(params.get(key).split(","));
-                        } else {
-                            return null;
-                        }
-                    };
-                    ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-                    ImageSearchResult result = imageDataAccess.search(
+
+                    Integer page = params.containsKey("page")
+                            ? Integer.parseInt(firstParam(params, "page"))
+                            : 0;
+                    boolean includeLicense = Boolean.parseBoolean(firstParam(params, "includeLicense"));
+
+                    SearchRequest request = SearchRequest.of(
                             text,
+                            searchType,
                             page,
-                            booleanParam.apply("hasPerson"),
-                            listParam.apply("animal"),
-                            listParam.apply("appliance"),
-                            listParam.apply("electronic"),
-                            listParam.apply("food"),
-                            listParam.apply("furniture"),
-                            listParam.apply("indoor"),
-                            listParam.apply("kitchen"),
-                            listParam.apply("outdoor"),
-                            listParam.apply("sports"),
-                            listParam.apply("vehicle")
+                            new SearchFilters(
+                                    booleanParam(params, "hasPerson"),
+                                    listParam(params, "animal"),
+                                    listParam(params, "appliance"),
+                                    listParam(params, "electronic"),
+                                    listParam(params, "food"),
+                                    listParam(params, "furniture"),
+                                    listParam(params, "indoor"),
+                                    listParam(params, "kitchen"),
+                                    listParam(params, "outdoor"),
+                                    listParam(params, "sports"),
+                                    listParam(params, "vehicle")
+                            ),
+                            includeLicense
                     );
+                    ImageSearchResult result = imageDataAccess.search(request);
                     return writeSearchResult(result, javaStartedAtNanos);
                 })
                 .build();
@@ -101,6 +105,56 @@ public class Main {
         Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
 
         server.start();
+    }
+
+    private static SearchType parseSearchType(Map<String, List<String>> params) {
+        List<String> rawValues = params.get("searchType");
+        if (rawValues == null || rawValues.isEmpty()) {
+            return SearchType.Text;
+        }
+
+        boolean sawText = false;
+        boolean sawVector = false;
+        for (String rawValue : rawValues) {
+            if (rawValue == null || rawValue.isBlank()) {
+                continue;
+            }
+            for (String token : rawValue.split(",")) {
+                if (token.isBlank()) {
+                    continue;
+                }
+                String normalised = token.trim();
+                if ("Both".equalsIgnoreCase(normalised)) {
+                    return SearchType.Combined;
+                }
+                SearchType parsed = SearchType.valueOf(normalised);
+                sawText = sawText || parsed == SearchType.Text;
+                sawVector = sawVector || parsed == SearchType.Vector || parsed == SearchType.Combined;
+            }
+        }
+
+        if (sawText && sawVector) {
+            return SearchType.Combined;
+        }
+        if (sawVector) {
+            return SearchType.Vector;
+        }
+        return SearchType.Text;
+    }
+
+    private static String firstParam(Map<String, List<String>> params, String key) {
+        List<String> values = params.get(key);
+        return values == null || values.isEmpty() ? null : values.getFirst();
+    }
+
+    private static Boolean booleanParam(Map<String, List<String>> params, String key) {
+        String value = firstParam(params, key);
+        return value == null ? null : Boolean.parseBoolean(value);
+    }
+
+    private static List<String> listParam(Map<String, List<String>> params, String key) {
+        String value = firstParam(params, key);
+        return value == null || value.isBlank() ? null : List.of(value.split(","));
     }
 
     private static String writeSearchResult(ImageSearchResult result, long javaStartedAtNanos) {
