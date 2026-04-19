@@ -63,14 +63,10 @@ public class ImageDataAccess implements AutoCloseable {
     private static final List<String> IMAGE_FIELDS = List.of(
             "_id",
             "caption",
-            "captionEmbedding",
-            "captionEmbeddingModel",
             "url",
             "height",
             "width",
             "dateCaptured",
-            "licenseName",
-            "licenseUrl",
             "hasPerson",
             "accessory",
             "animal",
@@ -239,7 +235,9 @@ public class ImageDataAccess implements AutoCloseable {
                 Aggregates.skip(skip),
                 Aggregates.limit(PAGE_SIZE),
                 Aggregates.facet(
-                        new Facet("docs", List.of()),
+                        new Facet("docs", List.of(
+                                new Document("$project", buildImageProjectionFields())
+                        )),
                         new Facet("meta", List.of(
                                 Aggregates.replaceWith("$$SEARCH_META"),
                                 Aggregates.limit(1)
@@ -261,15 +259,7 @@ public class ImageDataAccess implements AutoCloseable {
         if (searchTypes.equals(EnumSet.of(SearchType.Vector))) {
             aggregateStages = new ArrayList<>(buildVectorPipeline(queryVector, filters, vectorResultLimit, numCandidates));
         } else {
-            aggregateStages = new ArrayList<>(buildTextRankingPipeline(text, filters));
-            aggregateStages.add(new Document("$unionWith", new Document("coll", collection_name)
-                    .append("pipeline", buildVectorPipeline(queryVector, filters, vectorResultLimit, numCandidates))));
-            aggregateStages.add(new Document("$group", new Document("_id", "$_id")
-                    .append("doc", new Document("$first", "$$ROOT"))
-                    .append("hybridScore", new Document("$sum", "$hybridScore"))));
-            aggregateStages.add(new Document("$replaceRoot", new Document("newRoot",
-                    new Document("$mergeObjects", List.of("$doc", new Document("hybridScore", "$hybridScore"))))));
-            aggregateStages.add(new Document("$sort", new Document("hybridScore", -1).append("_id", 1)));
+            aggregateStages = new ArrayList<>(buildRankFusionPipeline(text, queryVector, filters, vectorResultLimit, numCandidates));
         }
         aggregateStages.add(new Document("$project", buildImageProjectionFields()));
         return aggregateRankedSearchResult(aggregateStages, skip);
@@ -348,17 +338,6 @@ public class ImageDataAccess implements AutoCloseable {
         return imageSearchResult;
     }
 
-    private List<Bson> buildTextRankingPipeline(String text, SearchFilters filters) {
-        ArrayList<Bson> pipeline = new ArrayList<>();
-        pipeline.add(new Document("$search", new Document("index", MongoConnection.index_name)
-                .append("compound", buildTextCompound(text, filters))));
-        pipeline.add(buildScoreProjection("searchScore"));
-        pipeline.add(buildRankStage());
-        pipeline.add(buildHybridScoreStage());
-        pipeline.add(buildImageProjection());
-        return pipeline;
-    }
-
     private List<Bson> buildVectorPipeline(List<Double> queryVector, SearchFilters filters, int limit, int numCandidates) {
         ArrayList<Bson> pipeline = new ArrayList<>();
         Document vectorStage = new Document("index", MongoConnection.vector_index_name)
@@ -376,6 +355,32 @@ public class ImageDataAccess implements AutoCloseable {
         pipeline.add(buildHybridScoreStage());
         pipeline.add(buildImageProjection());
         return pipeline;
+    }
+
+    private List<Bson> buildRankFusionPipeline(String text, List<Double> queryVector, SearchFilters filters, int limit, int numCandidates) {
+        ArrayList<Bson> pipeline = new ArrayList<>();
+        pipeline.add(new Document("$rankFusion", new Document("input", new Document("pipelines", new Document()
+                .append("textSearch", List.of(
+                        new Document("$search", new Document("index", MongoConnection.index_name)
+                                .append("compound", buildTextCompound(text, filters)))
+                ))
+                .append("vectorSearch", List.of(
+                        buildVectorPipelineStage(queryVector, filters, limit, numCandidates)
+                ))))));
+        return pipeline;
+    }
+
+    private Document buildVectorPipelineStage(List<Double> queryVector, SearchFilters filters, int limit, int numCandidates) {
+        Document vectorStage = new Document("index", MongoConnection.vector_index_name)
+                .append("path", "captionEmbedding")
+                .append("queryVector", queryVector)
+                .append("limit", limit)
+                .append("numCandidates", numCandidates);
+        Document filterDocument = filters.toVectorFilterDocument();
+        if (!filterDocument.isEmpty()) {
+            vectorStage.append("filter", filterDocument);
+        }
+        return new Document("$vectorSearch", vectorStage);
     }
 
     private Document buildTextCompound(String text, SearchFilters filters) {

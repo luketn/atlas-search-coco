@@ -58,12 +58,14 @@ public class ImageDataAccessTest extends AtlasDataTest {
         Image exampleImage = searchResult.docs().get(0);
         assertEquals(79047, exampleImage._id());
         assertEquals("Snow surrounds a standing bear statue on a sidewalk.", exampleImage.caption());
+        assertNull(exampleImage.captionEmbedding());
+        assertNull(exampleImage.captionEmbeddingModel());
         assertEquals("http://images.cocodataset.org/train2017/000000079047.jpg", exampleImage.url());
         assertEquals(640, exampleImage.height());
         assertEquals(480, exampleImage.width());
         assertEquals(new Date(1384775627000L), exampleImage.dateCaptured());
-        assertEquals("Attribution-NonCommercial-ShareAlike License", exampleImage.licenseName());
-        assertEquals("http://creativecommons.org/licenses/by-nc-sa/2.0/", exampleImage.licenseUrl());
+        assertNull(exampleImage.licenseName());
+        assertNull(exampleImage.licenseUrl());
         assertFalse(exampleImage.hasPerson());
         assertEquals(1, exampleImage.animal().size());
         assertEquals("bear", exampleImage.animal().getFirst());
@@ -98,12 +100,14 @@ public class ImageDataAccessTest extends AtlasDataTest {
         Image exampleImage = searchResult.docs().get(0);
         assertEquals(527040, exampleImage._id());
         assertEquals("Three birds sitting on a bread basket near a newspaper.", exampleImage.caption());
+        assertNull(exampleImage.captionEmbedding());
+        assertNull(exampleImage.captionEmbeddingModel());
         assertEquals("http://images.cocodataset.org/train2017/000000527040.jpg", exampleImage.url());
         assertEquals(640, exampleImage.height());
         assertEquals(480, exampleImage.width());
         assertEquals(new Date(1384546777000L), exampleImage.dateCaptured());
-        assertEquals("Attribution-NonCommercial License", exampleImage.licenseName());
-        assertEquals("http://creativecommons.org/licenses/by-nc/2.0/", exampleImage.licenseUrl());
+        assertNull(exampleImage.licenseName());
+        assertNull(exampleImage.licenseUrl());
 
         assertTrue(exampleImage.hasPerson());
 
@@ -235,6 +239,10 @@ public class ImageDataAccessTest extends AtlasDataTest {
             assertNotNull(searchResult);
             assertFalse(searchResult.docs().isEmpty());
             assertEquals(79047, searchResult.docs().getFirst()._id());
+            assertNull(searchResult.docs().getFirst().captionEmbedding());
+            assertNull(searchResult.docs().getFirst().captionEmbeddingModel());
+            assertNull(searchResult.docs().getFirst().licenseName());
+            assertNull(searchResult.docs().getFirst().licenseUrl());
             assertTrue(searchResult.meta().getFirst().count().total() >= 1);
         } finally {
             LMStudioEmbedding.setEmbeddingProviderForTests(null);
@@ -266,6 +274,10 @@ public class ImageDataAccessTest extends AtlasDataTest {
             assertNotNull(searchResult);
             assertFalse(searchResult.docs().isEmpty());
             assertEquals(527040, searchResult.docs().getFirst()._id());
+            assertNull(searchResult.docs().getFirst().captionEmbedding());
+            assertNull(searchResult.docs().getFirst().captionEmbeddingModel());
+            assertNull(searchResult.docs().getFirst().licenseName());
+            assertNull(searchResult.docs().getFirst().licenseUrl());
             assertEquals(1, searchResult.meta().getFirst().count().total());
         } finally {
             LMStudioEmbedding.setEmbeddingProviderForTests(null);

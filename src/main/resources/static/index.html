@@ -8,23 +8,95 @@
     <script src="https://unpkg.com/@material-ui/core@latest/umd/material-ui.development.js" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
     <style>
+        :root {
+            --surface: #ffffff;
+            --surface-muted: #f5f2ec;
+            --surface-strong: #f2ece3;
+            --stroke: #ddd3c6;
+            --text: #1e1b18;
+            --text-muted: #6d655b;
+            --accent: #c44b1c;
+            --accent-soft: rgba(196, 75, 28, 0.12);
+        }
+
         body {
             margin: 0;
             padding: 16px;
-        }
-
-        .result-image {
-            max-width: 240px;
-            margin-right: 1rem;
-            border-radius: 4px;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(196, 75, 28, 0.10), transparent 28%),
+                radial-gradient(circle at top right, rgba(34, 94, 83, 0.10), transparent 24%),
+                linear-gradient(180deg, #fbf8f4 0%, #f7f2ea 100%);
+            font-family: "Roboto", sans-serif;
         }
 
         .result-row {
             display: flex;
-            padding: 8px;
-            margin-bottom: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            gap: 16px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border: 1px solid var(--stroke);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.82);
+            box-shadow: 0 10px 30px rgba(52, 38, 20, 0.06);
+            cursor: pointer;
+            transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+        }
+
+        .result-row:hover {
+            transform: translateY(-2px);
+            border-color: rgba(196, 75, 28, 0.45);
+            box-shadow: 0 16px 32px rgba(52, 38, 20, 0.10);
+        }
+
+        .result-image {
+            width: 240px;
+            max-width: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+            background: var(--surface-muted);
+        }
+
+        .viewer-image {
+            display: block;
+            max-width: min(100%, 1400px);
+            max-height: 72vh;
+            width: auto;
+            height: auto;
+            margin: 0 auto;
+            border-radius: 18px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+            background: #f7f2ea;
+        }
+
+        .viewer-arrow {
+            min-width: 56px;
+            width: 56px;
+            height: 56px;
+            border-radius: 999px;
+            border: none;
+            background: rgba(255, 255, 255, 0.92);
+            color: var(--text);
+            font-size: 28px;
+            line-height: 1;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+            cursor: pointer;
+        }
+
+        .viewer-arrow:disabled {
+            opacity: 0.35;
+            cursor: default;
+            box-shadow: none;
+        }
+
+        @media (max-width: 900px) {
+            .result-row {
+                flex-direction: column;
+            }
+
+            .result-image {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -32,7 +104,7 @@
 <div id="root"></div>
 
 <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
     const {
         Typography,
         Checkbox,
@@ -45,6 +117,8 @@
         Grid,
         Button,
         Chip,
+        Dialog,
+        CircularProgress,
     } = MaterialUI;
 
     const FILTER_KEYS = [
@@ -59,6 +133,7 @@
         'sports',
         'vehicle'
     ];
+    const PAGE_SIZE = 5;
 
     function toTitleCase(value) {
         return value.charAt(0).toUpperCase() + value.slice(1);
@@ -71,10 +146,30 @@
         }, {});
     }
 
+    function buildSearchParams({ query, page, searchTypes, hasPerson, filters }) {
+        const params = new URLSearchParams();
+        params.set('text', query.trim() || 'a');
+        params.set('page', String(page));
+
+        searchTypes.forEach(searchType => params.append('searchType', searchType));
+
+        if (hasPerson === 'true' || hasPerson === 'false') {
+            params.set('hasPerson', hasPerson);
+        }
+
+        FILTER_KEYS.forEach(key => {
+            if (filters[key].length > 0) {
+                params.set(key, filters[key].join(','));
+            }
+        });
+
+        return params;
+    }
+
     function App() {
         const [query, setQuery] = useState('');
         const [page, setPage] = useState(0);
-        const [docs, setDocs] = useState([]);
+        const [pageDocs, setPageDocs] = useState({});
         const [facet, setFacet] = useState(null);
         const [total, setTotal] = useState(0);
         const [filters, setFilters] = useState(createEmptyFilterState());
@@ -83,9 +178,15 @@
         const [searchTypes, setSearchTypes] = useState(['Text']);
         const [vectorSearchEnabled, setVectorSearchEnabled] = useState(false);
         const [searchError, setSearchError] = useState('');
+        const [loadingPage, setLoadingPage] = useState(false);
+        const [viewer, setViewer] = useState(null);
+        const [loadingViewerPage, setLoadingViewerPage] = useState(false);
+        const requestKeyRef = useRef('');
 
-        // Determine API domain - always use 8222 for localhost dev, empty for production
         const domain = document.location.host.includes('localhost') ? 'http://localhost:8222' : '';
+
+        const currentPageDocs = pageDocs[page] || [];
+        const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
         useEffect(() => {
             fetch(`${domain}/capabilities`)
@@ -96,9 +197,7 @@
                     return response.json();
                 })
                 .then(data => {
-                    const enabled = !!data.vectorSearchEnabled;
-                    setVectorSearchEnabled(enabled);
-                    setSearchTypes(enabled ? ['Text'] : ['Text']);
+                    setVectorSearchEnabled(!!data.vectorSearchEnabled);
                 })
                 .catch(error => {
                     setSearchError(error.message || 'Failed to load search capabilities');
@@ -132,23 +231,35 @@
         }, []);
 
         useEffect(() => {
-            // Use 'a' as wildcard when search is empty - matches ~103k results
-            const trimmed = query.trim() || 'a';
-
-            const params = new URLSearchParams();
-            params.set('text', trimmed);
-            params.set('page', String(page));
-            searchTypes.forEach(searchType => params.append('searchType', searchType));
-
-            if (hasPerson === 'true' || hasPerson === 'false') {
-                params.set('hasPerson', hasPerson);
+            if (!vectorSearchEnabled && searchTypes.includes('Vector')) {
+                setSearchTypes(['Text']);
             }
+        }, [vectorSearchEnabled]);
 
-            FILTER_KEYS.forEach(key => {
-                if (filters[key].length > 0) {
-                    params.set(key, filters[key].join(','));
-                }
+        useEffect(() => {
+            const activeSearchTypes = vectorSearchEnabled ? searchTypes : ['Text'];
+            const requestKey = JSON.stringify({
+                query,
+                page,
+                searchTypes: activeSearchTypes,
+                hasPerson,
+                filters,
             });
+            requestKeyRef.current = requestKey;
+            setLoadingPage(true);
+
+            const params = buildSearchParams({
+                query,
+                page,
+                searchTypes: activeSearchTypes,
+                hasPerson,
+                filters,
+            });
+
+            if (page === 0) {
+                setPageDocs({});
+                setViewer(null);
+            }
 
             fetch(`${domain}/image/search?${params.toString()}`)
                 .then(async response => {
@@ -159,19 +270,65 @@
                     return response.json();
                 })
                 .then(data => {
+                    if (requestKeyRef.current !== requestKey) {
+                        return;
+                    }
                     const meta = (data.meta && data.meta.length > 0) ? data.meta[0] : null;
-                    setDocs(data.docs || []);
+                    setPageDocs(previous => ({
+                        ...previous,
+                        [page]: data.docs || [],
+                    }));
                     setFacet(meta ? meta.facet : null);
                     setTotal(meta && meta.count ? meta.count.total : 0);
                     setSearchError('');
                 })
                 .catch(error => {
-                    setDocs([]);
+                    if (requestKeyRef.current !== requestKey) {
+                        return;
+                    }
+                    setPageDocs({});
                     setFacet(null);
                     setTotal(0);
+                    setViewer(null);
                     setSearchError(error.message || 'Search failed');
+                })
+                .finally(() => {
+                    if (requestKeyRef.current === requestKey) {
+                        setLoadingPage(false);
+                    }
                 });
-        }, [query, page, filters, hasPerson, searchTypes]);
+        }, [query, page, filters, hasPerson, searchTypes, vectorSearchEnabled]);
+
+        function fetchPageData(targetPage) {
+            const activeSearchTypes = vectorSearchEnabled ? searchTypes : ['Text'];
+            const params = buildSearchParams({
+                query,
+                page: targetPage,
+                searchTypes: activeSearchTypes,
+                hasPerson,
+                filters,
+            });
+
+            return fetch(`${domain}/image/search?${params.toString()}`)
+                .then(async response => {
+                    if (!response.ok) {
+                        const message = await response.text();
+                        throw new Error(message || `Search failed with status ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const meta = (data.meta && data.meta.length > 0) ? data.meta[0] : null;
+                    setPageDocs(previous => ({
+                        ...previous,
+                        [targetPage]: data.docs || [],
+                    }));
+                    if (meta && meta.count) {
+                        setTotal(meta.count.total);
+                    }
+                    return data.docs || [];
+                });
+        }
 
         function toggleSearchType(type, checked) {
             setPage(0);
@@ -204,9 +361,64 @@
             return bucket ? bucket.count : 0;
         }
 
-        function totalPages() {
-            return Math.max(1, Math.ceil(total / 5));
+        function openViewer(pageNumber, indexWithinPage) {
+            setViewer({ page: pageNumber, index: indexWithinPage });
         }
+
+        function closeViewer() {
+            setViewer(null);
+        }
+
+        async function moveViewer(direction) {
+            if (!viewer) {
+                return;
+            }
+
+            const docs = pageDocs[viewer.page] || [];
+            if (direction === 'next' && viewer.index < docs.length - 1) {
+                setViewer({ page: viewer.page, index: viewer.index + 1 });
+                return;
+            }
+            if (direction === 'prev' && viewer.index > 0) {
+                setViewer({ page: viewer.page, index: viewer.index - 1 });
+                return;
+            }
+
+            const targetPage = direction === 'next' ? viewer.page + 1 : viewer.page - 1;
+            if (targetPage < 0 || targetPage >= totalPages) {
+                return;
+            }
+
+            setLoadingViewerPage(true);
+            try {
+                const nextDocs = pageDocs[targetPage] || await fetchPageData(targetPage);
+                setPage(targetPage);
+                setViewer({
+                    page: targetPage,
+                    index: direction === 'next' ? 0 : Math.max(0, nextDocs.length - 1),
+                });
+            } catch (error) {
+                setSearchError(error.message || 'Failed to load more results');
+            } finally {
+                setLoadingViewerPage(false);
+            }
+        }
+
+        const viewerImage = useMemo(() => {
+            if (!viewer) {
+                return null;
+            }
+            const docs = pageDocs[viewer.page] || [];
+            return docs[viewer.index] || null;
+        }, [viewer, pageDocs]);
+
+        const canMovePrev = !!viewer && (viewer.index > 0 || viewer.page > 0);
+        const canMoveNext = !!viewer && (
+            viewerImage && (
+                viewer.index < ((pageDocs[viewer.page] || []).length - 1)
+                || viewer.page + 1 < totalPages
+            )
+        );
 
         return (
             <div tabIndex="0">
@@ -242,30 +454,34 @@
                                 </RadioGroup>
                             </FormControl>
                         </Box>
-                        <Box sx={{ marginTop: 1, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <Typography variant="body2" color="textSecondary">Search Type</Typography>
-                            <FormControlLabel
-                                control={
-                                    <Checkbox
-                                        checked={searchTypes.includes('Text')}
-                                        onChange={event => toggleSearchType('Text', event.target.checked)}
-                                    />
-                                }
-                                label="Text"
-                            />
-                            <FormControlLabel
-                                control={
-                                    <Checkbox
-                                        checked={searchTypes.includes('Vector')}
-                                        onChange={event => toggleSearchType('Vector', event.target.checked)}
-                                        disabled={!vectorSearchEnabled}
-                                    />
-                                }
-                                label={vectorSearchEnabled ? 'Vector' : 'Vector (index unavailable)'}
-                            />
-                        </Box>
-                        <Box sx={{ marginTop: 1 }}>
-                            <Typography color="error">{searchError}</Typography>
+
+                        {vectorSearchEnabled && (
+                            <Box sx={{ marginTop: 1, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <Typography variant="body2" color="textSecondary">Search Type</Typography>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={searchTypes.includes('Text')}
+                                            onChange={event => toggleSearchType('Text', event.target.checked)}
+                                        />
+                                    }
+                                    label="Text"
+                                />
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={searchTypes.includes('Vector')}
+                                            onChange={event => toggleSearchType('Vector', event.target.checked)}
+                                        />
+                                    }
+                                    label="Vector"
+                                />
+                            </Box>
+                        )}
+
+                        <Box sx={{ marginTop: 1, minHeight: 28 }}>
+                            {loadingPage && <Typography color="textSecondary">Refreshing results…</Typography>}
+                            {!loadingPage && <Typography color="error">{searchError}</Typography>}
                         </Box>
                     </Grid>
 
@@ -294,16 +510,20 @@
                     </Grid>
 
                     <Grid item xs={12} md={9}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
-                            <Typography variant="subtitle1">{`Results: ${total} (${searchTypes.join(' + ')})`}</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1, gap: 2, flexWrap: 'wrap' }}>
+                            <Typography variant="subtitle1">
+                                {vectorSearchEnabled
+                                    ? `Results: ${total} (${searchTypes.join(' + ')})`
+                                    : `Results: ${total}`}
+                            </Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Button variant="outlined" disabled={page === 0} onClick={() => setPage(page - 1)}>
                                     Previous
                                 </Button>
-                                <Typography variant="body2">{`Page ${page + 1} / ${totalPages()}`}</Typography>
+                                <Typography variant="body2">{`Page ${page + 1} / ${totalPages}`}</Typography>
                                 <Button
                                     variant="outlined"
-                                    disabled={page + 1 >= totalPages()}
+                                    disabled={page + 1 >= totalPages}
                                     onClick={() => setPage(page + 1)}
                                 >
                                     Next
@@ -311,13 +531,20 @@
                             </Box>
                         </Box>
 
-                        {docs.map(image => (
-                            <div key={`image.${image._id}`} className="result-row">
+                        {currentPageDocs.map((image, index) => (
+                            <div
+                                key={`image.${image._id}`}
+                                className="result-row"
+                                onClick={() => openViewer(page, index)}
+                            >
                                 <img className="result-image" src={image.url} alt={image.caption} />
-                                <Box>
+                                <Box sx={{ minWidth: 0 }}>
                                     <Typography variant="body1">{image.caption}</Typography>
                                     <Typography variant="body2" color="textSecondary">
                                         {image.hasPerson ? 'Contains a person' : 'No person detected'}
+                                    </Typography>
+                                    <Typography variant="caption" color="textSecondary">
+                                        {`${image.width} × ${image.height}`}
                                     </Typography>
                                     <Box sx={{ marginTop: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                         {FILTER_KEYS.map(key =>
@@ -331,6 +558,70 @@
                         ))}
                     </Grid>
                 </Grid>
+
+                <Dialog open={!!viewerImage} onClose={closeViewer} maxWidth={false} fullWidth PaperProps={{
+                    style: {
+                        background: 'linear-gradient(180deg, #f7f2ea 0%, #fffaf2 100%)',
+                        borderRadius: 24,
+                        padding: 0,
+                        overflow: 'hidden',
+                        maxWidth: 'min(96vw, 1600px)',
+                    }
+                }}>
+                    {viewerImage && (
+                        <Box sx={{ position: 'relative', padding: { xs: 2, md: 4 } }}>
+                            <Box sx={{ position: 'absolute', top: 18, right: 18 }}>
+                                <Button onClick={closeViewer}>Close</Button>
+                            </Box>
+
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 } }}>
+                                <button className="viewer-arrow" onClick={() => moveViewer('prev')} disabled={!canMovePrev || loadingViewerPage}>
+                                    &#8249;
+                                </button>
+
+                                <Box sx={{ flexGrow: 1 }}>
+                                    <img className="viewer-image" src={viewerImage.url} alt={viewerImage.caption} />
+                                </Box>
+
+                                <button className="viewer-arrow" onClick={() => moveViewer('next')} disabled={!canMoveNext || loadingViewerPage}>
+                                    &#8250;
+                                </button>
+                            </Box>
+
+                            <Box sx={{ marginTop: 3, paddingX: { xs: 1, md: 4 } }}>
+                                <Typography variant="overline" color="textSecondary">
+                                    {`Result ${viewer.page * PAGE_SIZE + viewer.index + 1} of ${total}`}
+                                </Typography>
+                                <Typography variant="h6" component="h2">
+                                    {viewerImage.caption}
+                                </Typography>
+                                <Typography variant="body2" color="textSecondary">
+                                    {viewerImage.hasPerson ? 'Contains a person' : 'No person detected'}
+                                </Typography>
+                                <Typography variant="body2" color="textSecondary">
+                                    {`${viewerImage.width} × ${viewerImage.height}`}
+                                </Typography>
+
+                                <Box sx={{ marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                                    {FILTER_KEYS.flatMap(key =>
+                                        (viewerImage[key] || []).map(value => (
+                                            <Chip key={`viewer.${viewerImage._id}.${key}.${value}`} label={`${key}: ${value}`} />
+                                        ))
+                                    )}
+                                </Box>
+
+                                {loadingViewerPage && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginTop: 2 }}>
+                                        <CircularProgress size={18} />
+                                        <Typography variant="body2" color="textSecondary">
+                                            Loading more results…
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Box>
+                        </Box>
+                    )}
+                </Dialog>
             </div>
         );
     }
