@@ -24,7 +24,7 @@ import static com.mycodefu.datapreparation.PrepareDataEntryPoint.downloadAndInit
 public class Main {
     private static final Pattern totalJavaTimePattern = Pattern.compile("(\"totalJavaTimeMs\"\\s*:\\s*)(-?\\d+(?:\\.\\d+)?)");
 
-    static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException {
         if (args.length > 0) {
             switch (args[0]) {
                 case "--loadData" -> downloadAndInitialiseDataset(false);
