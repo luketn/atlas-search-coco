@@ -343,6 +343,37 @@ public class ImageDataAccessTest extends AtlasDataTest {
     }
 
     @Test
+    public void vector_search_handles_large_result_sets_without_limit_num_candidates_error() {
+        LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(0.3, 0.3, 0.3, 0.3), "test-query-model"));
+        try {
+            ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+            ImageSearchResult searchResult = imageDataAccess.search(
+                    "cow",
+                    EnumSet.of(SearchType.Vector),
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    0.0
+            );
+
+            assertNotNull(searchResult);
+            assertNotNull(searchResult.meta());
+            assertNotNull(searchResult.meta().getFirst());
+        } finally {
+            LMStudioEmbedding.setEmbeddingProviderForTests(null);
+        }
+    }
+
+    @Test
     public void hybrid_search_combines_text_and_vector_results() {
         LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(0.0, 1.0, 0.15, 0.0), "test-query-model"));
         try {

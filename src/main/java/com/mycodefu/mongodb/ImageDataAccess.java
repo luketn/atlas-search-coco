@@ -316,8 +316,9 @@ public class ImageDataAccess implements AutoCloseable {
         int skip = page == null ? 0 : page * PAGE_SIZE;
         List<Double> queryVector = LMStudioEmbedding.embed(text).embedding();
         long vectorLimit = Math.max(1L, imageDocumentCollection.countDocuments(filters.toVectorFilterDocument()));
-        int vectorResultLimit = (int) Math.min(Integer.MAX_VALUE, vectorLimit);
-        int numCandidates = Math.min(MAX_VECTOR_CANDIDATES, Math.max(vectorResultLimit, MIN_VECTOR_CANDIDATES));
+        int desiredVectorResultLimit = (int) Math.min(Integer.MAX_VALUE, vectorLimit);
+        int numCandidates = Math.min(MAX_VECTOR_CANDIDATES, Math.max(desiredVectorResultLimit, MIN_VECTOR_CANDIDATES));
+        int vectorResultLimit = Math.min(desiredVectorResultLimit, numCandidates);
 
         List<Bson> aggregateStages;
         if (searchTypes.equals(EnumSet.of(SearchType.Vector))) {
