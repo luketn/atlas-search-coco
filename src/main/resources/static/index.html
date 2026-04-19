@@ -80,10 +80,30 @@
         const [filters, setFilters] = useState(createEmptyFilterState());
         const [optionsByFilter, setOptionsByFilter] = useState(createEmptyFilterState());
         const [hasPerson, setHasPerson] = useState('any');
+        const [searchTypes, setSearchTypes] = useState(['Text']);
+        const [vectorSearchEnabled, setVectorSearchEnabled] = useState(false);
         const [searchError, setSearchError] = useState('');
 
         // Determine API domain - always use 8222 for localhost dev, empty for production
         const domain = document.location.host.includes('localhost') ? 'http://localhost:8222' : '';
+
+        useEffect(() => {
+            fetch(`${domain}/capabilities`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load search capabilities');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const enabled = !!data.vectorSearchEnabled;
+                    setVectorSearchEnabled(enabled);
+                    setSearchTypes(enabled ? ['Text'] : ['Text']);
+                })
+                .catch(error => {
+                    setSearchError(error.message || 'Failed to load search capabilities');
+                });
+        }, []);
 
         useEffect(() => {
             fetch(`${domain}/categories`)
@@ -118,6 +138,7 @@
             const params = new URLSearchParams();
             params.set('text', trimmed);
             params.set('page', String(page));
+            searchTypes.forEach(searchType => params.append('searchType', searchType));
 
             if (hasPerson === 'true' || hasPerson === 'false') {
                 params.set('hasPerson', hasPerson);
@@ -150,7 +171,17 @@
                     setTotal(0);
                     setSearchError(error.message || 'Search failed');
                 });
-        }, [query, page, filters, hasPerson]);
+        }, [query, page, filters, hasPerson, searchTypes]);
+
+        function toggleSearchType(type, checked) {
+            setPage(0);
+            setSearchTypes(previous => {
+                const next = checked
+                    ? Array.from(new Set([...previous, type]))
+                    : previous.filter(item => item !== type);
+                return next.length === 0 ? ['Text'] : next;
+            });
+        }
 
         function toggleFilter(key, value, checked) {
             setPage(0);
@@ -211,6 +242,28 @@
                                 </RadioGroup>
                             </FormControl>
                         </Box>
+                        <Box sx={{ marginTop: 1, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <Typography variant="body2" color="textSecondary">Search Type</Typography>
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={searchTypes.includes('Text')}
+                                        onChange={event => toggleSearchType('Text', event.target.checked)}
+                                    />
+                                }
+                                label="Text"
+                            />
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={searchTypes.includes('Vector')}
+                                        onChange={event => toggleSearchType('Vector', event.target.checked)}
+                                        disabled={!vectorSearchEnabled}
+                                    />
+                                }
+                                label={vectorSearchEnabled ? 'Vector' : 'Vector (index unavailable)'}
+                            />
+                        </Box>
                         <Box sx={{ marginTop: 1 }}>
                             <Typography color="error">{searchError}</Typography>
                         </Box>
@@ -242,7 +295,7 @@
 
                     <Grid item xs={12} md={9}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
-                            <Typography variant="subtitle1">{`Results: ${total}`}</Typography>
+                            <Typography variant="subtitle1">{`Results: ${total} (${searchTypes.join(' + ')})`}</Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Button variant="outlined" disabled={page === 0} onClick={() => setPage(page - 1)}>
                                     Previous

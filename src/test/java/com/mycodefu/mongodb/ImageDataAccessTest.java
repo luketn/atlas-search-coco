@@ -1,11 +1,14 @@
 package com.mycodefu.mongodb;
 
+import com.mycodefu.lmstudio.LMStudioEmbedding;
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
+import com.mycodefu.model.SearchType;
 import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
 import org.junit.Test;
 
 import java.util.Date;
+import java.util.EnumSet;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -21,6 +24,8 @@ public class ImageDataAccessTest extends AtlasDataTest {
 
         assertEquals(79047, exampleImage._id());
         assertEquals("Snow surrounds a standing bear statue on a sidewalk.", exampleImage.caption());
+        assertEquals(List.of(1.0, 0.2, 0.0, 0.0), exampleImage.captionEmbedding());
+        assertEquals("sample-test-vector-v1", exampleImage.captionEmbeddingModel());
         assertEquals("http://images.cocodataset.org/train2017/000000079047.jpg", exampleImage.url());
         assertEquals(640, exampleImage.height());
         assertEquals(480, exampleImage.width());
@@ -202,6 +207,68 @@ public class ImageDataAccessTest extends AtlasDataTest {
             );
         } finally {
             System.clearProperty(MongoConnectionTracing.TRACE_COMMANDS_PROPERTY);
+        }
+    }
+
+    @Test
+    public void vector_search_returns_semantic_match() {
+        LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(1.0, 0.2, 0.0, 0.0), "test-query-model"));
+        try {
+            ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+            ImageSearchResult searchResult = imageDataAccess.search(
+                    "icy sculpture on a footpath",
+                    EnumSet.of(SearchType.Vector),
+                    0,
+                    null,
+                    List.of("bear"),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of("bench"),
+                    null,
+                    null
+            );
+
+            assertNotNull(searchResult);
+            assertFalse(searchResult.docs().isEmpty());
+            assertEquals(79047, searchResult.docs().getFirst()._id());
+            assertTrue(searchResult.meta().getFirst().count().total() >= 1);
+        } finally {
+            LMStudioEmbedding.setEmbeddingProviderForTests(null);
+        }
+    }
+
+    @Test
+    public void hybrid_search_combines_text_and_vector_results() {
+        LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(0.0, 1.0, 0.15, 0.0), "test-query-model"));
+        try {
+            ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+            ImageSearchResult searchResult = imageDataAccess.search(
+                    "newspaper",
+                    EnumSet.of(SearchType.Text, SearchType.Vector),
+                    0,
+                    true,
+                    List.of("bird"),
+                    null,
+                    null,
+                    null,
+                    List.of("chair", "dining table"),
+                    null,
+                    List.of("cup"),
+                    null,
+                    null,
+                    null
+            );
+
+            assertNotNull(searchResult);
+            assertFalse(searchResult.docs().isEmpty());
+            assertEquals(527040, searchResult.docs().getFirst()._id());
+            assertEquals(1, searchResult.meta().getFirst().count().total());
+        } finally {
+            LMStudioEmbedding.setEmbeddingProviderForTests(null);
         }
     }
 

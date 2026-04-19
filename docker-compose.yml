@@ -15,9 +15,13 @@ services:
     volumes:
       - code:/opt/app
     working_dir: /opt/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
         CONNECTION_STRING: "mongodb://mongodbatlas/?directConnection=true"
-    command: mvn package --quiet exec:java -Dexec.args="--loadData" -DskipTests
+        LM_STUDIO_BASE_URL: "${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234}"
+        JAVA_APP_ARGS: "${JAVA_APP_ARGS:---loadData}"
+    command: sh -lc 'mvn package --quiet exec:java -Dexec.args="$$JAVA_APP_ARGS" -DskipTests'
 
 volumes:
   code:
