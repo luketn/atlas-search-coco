@@ -1,15 +1,17 @@
 package com.mycodefu.mongodb.search;
 
+import com.mycodefu.model.SearchType;
+
 public final class SearchPlanner {
     private SearchPlanner() {
     }
 
     public static SearchMode plan(SearchRequest request, boolean vectorSearchAvailable) {
         if (!request.hasMeaningfulText()) {
-            return SearchMode.BROWSE;
+            return SearchMode.TEXT;
         }
 
-        if (request.textOnly()) {
+        if (request.is(SearchType.Text)) {
             return SearchMode.TEXT;
         }
 
@@ -17,6 +19,6 @@ public final class SearchPlanner {
             throw new IllegalStateException("Vector search index is not available.");
         }
 
-        return request.vectorOnly() ? SearchMode.VECTOR : SearchMode.HYBRID;
+        return request.is(SearchType.Vector) ? SearchMode.VECTOR : SearchMode.COMBINED;
     }
 }

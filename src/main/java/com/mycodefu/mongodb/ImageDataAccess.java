@@ -6,7 +6,6 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.search.SearchOperator;
 import com.mycodefu.datapreparation.util.JsonUtil;
 import com.mycodefu.lmstudio.LMStudioEmbedding;
 import com.mycodefu.model.Image;
@@ -14,19 +13,15 @@ import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.model.QueryStats;
 import com.mycodefu.mongodb.atlas.MongoConnection;
 import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
-import com.mycodefu.mongodb.search.HybridRanker;
 import com.mycodefu.mongodb.search.SearchPipelines;
 import com.mycodefu.mongodb.search.SearchPlanner;
 import com.mycodefu.mongodb.search.SearchRequest;
-import com.mycodefu.mongodb.search.VectorQueryPlan;
-import com.mycodefu.mongodb.search.VectorQueryPlanner;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.json.JsonWriterSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
@@ -36,8 +31,9 @@ import static com.mycodefu.mongodb.atlas.MongoConnection.database_name;
 public class ImageDataAccess implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(ImageDataAccess.class);
 
-    public static final double DEFAULT_VECTOR_SCORE_CUTOFF = SearchRequest.DEFAULT_VECTOR_SCORE_CUTOFF;
     public static final String collection_name = "image";
+
+    private static volatile VectorSearchIndexState cachedVectorSearchIndexState;
 
     private final MongoCollection<Image> imageCollection;
     private final MongoCollection<Document> imageDocumentCollection;
@@ -72,57 +68,62 @@ public class ImageDataAccess implements AutoCloseable {
         imageCollection.deleteMany(new Document());
     }
 
+    public VectorSearchIndexState refreshVectorSearchIndexState() {
+        cachedVectorSearchIndexState = loadVectorSearchIndexState();
+        return cachedVectorSearchIndexState;
+    }
+
     public boolean hasVectorSearchIndex() {
+        return vectorSearchIndexState().available();
+    }
+
+    public ImageSearchResult search(SearchRequest request) {
+        VectorSearchIndexState vectorSearchIndexState = vectorSearchIndexState();
+        return switch (SearchPlanner.plan(request, vectorSearchIndexState.available())) {
+            case TEXT -> executeSearch(SearchPipelines.textSearchPipeline(request));
+            case VECTOR -> executeSearch(SearchPipelines.vectorSearchPipeline(
+                    request,
+                    LMStudioEmbedding.embed(request.text()).embedding(),
+                    collection_name
+            ));
+            case COMBINED -> executeSearch(SearchPipelines.combinedSearchPipeline(
+                    request,
+                    LMStudioEmbedding.embed(request.text()).embedding(),
+                    Math.max(vectorSearchIndexState.documentCount(), SearchPipelines.pageSize())
+            ));
+        };
+    }
+
+    private ImageSearchResult executeSearch(List<? extends Bson> aggregateStages) {
+        return aggregateSearchResult(imageCollection.aggregate(aggregateStages, ImageSearchResult.class), aggregateStages);
+    }
+
+    private VectorSearchIndexState vectorSearchIndexState() {
+        VectorSearchIndexState current = cachedVectorSearchIndexState;
+        if (current == null) {
+            current = refreshVectorSearchIndexState();
+        }
+        return current;
+    }
+
+    private VectorSearchIndexState loadVectorSearchIndexState() {
         try {
             for (Document indexDocument : imageDocumentCollection.listSearchIndexes()) {
                 if (MongoConnection.vector_index_name.equals(indexDocument.getString("name"))
                         && "READY".equals(indexDocument.getString("status"))) {
-                    return true;
+                    return new VectorSearchIndexState(true, documentCount(indexDocument.get("numDocs")));
                 }
             }
-            return false;
+            return VectorSearchIndexState.unavailable();
         } catch (MongoCommandException e) {
             log.warn("Search index management service unavailable while detecting vector search index. " +
                     "Starting with vector search disabled.", e);
-            return false;
+            return VectorSearchIndexState.unavailable();
         }
     }
 
-    public ImageSearchResult search(SearchRequest request) {
-        return switch (SearchPlanner.plan(request, hasVectorSearchIndex())) {
-            case BROWSE -> executeFacetSearch(SearchPipelines.browseSearchOperator(request), request);
-            case TEXT -> executeFacetSearch(SearchPipelines.textSearchOperator(request), request);
-            case VECTOR -> executeVectorSearch(request);
-            case HYBRID -> executeHybridSearch(request);
-        };
-    }
-
-    private ImageSearchResult executeFacetSearch(SearchOperator operator, SearchRequest request) {
-        List<Bson> aggregateStages = SearchPipelines.facetSearchPipeline(operator, request);
-        return aggregateSearchResult(imageCollection.aggregate(aggregateStages, ImageSearchResult.class), aggregateStages);
-    }
-
-    private ImageSearchResult executeVectorSearch(SearchRequest request) {
-        VectorQueryPlan vectorQueryPlan = createVectorQueryPlan(request);
-        List<Bson> aggregateStages = SearchPipelines.vectorPipeline(vectorQueryPlan, request, false);
-        return aggregateRankedSearchResult(aggregateStages, request.page() * SearchPipelines.pageSize());
-    }
-
-    private ImageSearchResult executeHybridSearch(SearchRequest request) {
-        int skip = request.page() * SearchPipelines.pageSize();
-        VectorQueryPlan vectorQueryPlan = createVectorQueryPlan(request);
-        int textResultLimit = (int) Math.min(Integer.MAX_VALUE - 1L, Math.max(1L, vectorQueryPlan.filteredDocumentCount()));
-
-        List<Image> textResults = loadRankedImages(SearchPipelines.textRankingPipeline(request, textResultLimit));
-        List<Image> vectorResults = loadRankedImages(SearchPipelines.vectorPipeline(vectorQueryPlan, request, true));
-        List<Image> rankedImages = HybridRanker.fuse(textResults, vectorResults);
-        return buildRankedSearchResult(rankedImages, skip, null);
-    }
-
-    private VectorQueryPlan createVectorQueryPlan(SearchRequest request) {
-        List<Double> queryVector = LMStudioEmbedding.embed(request.text()).embedding();
-        long filteredDocumentCount = imageDocumentCollection.countDocuments(request.filters().toVectorFilterDocument());
-        return VectorQueryPlanner.plan(queryVector, filteredDocumentCount);
+    private int documentCount(Object value) {
+        return value instanceof Number number ? number.intValue() : 0;
     }
 
     private ImageSearchResult aggregateSearchResult(AggregateIterable<ImageSearchResult> aggregateCursor, List<? extends Bson> aggregateStages) {
@@ -139,31 +140,6 @@ public class ImageDataAccess implements AutoCloseable {
             log.debug(JsonUtil.writeToString(imageSearchResult));
         }
         return imageSearchResult;
-    }
-
-    private ImageSearchResult aggregateRankedSearchResult(List<? extends Bson> aggregateStages, int skip) {
-        return buildRankedSearchResult(loadRankedImages(aggregateStages), skip, null);
-    }
-
-    private List<Image> loadRankedImages(List<? extends Bson> aggregateStages) {
-        AggregateExecutionResult<List<Image>> executionResult = executeAggregate(
-                imageDocumentCollection.aggregate(aggregateStages, Image.class),
-                aggregateStages,
-                cursor -> {
-                    ArrayList<Image> rankedImages = new ArrayList<>();
-                    while (cursor.hasNext()) {
-                        rankedImages.add(cursor.next());
-                    }
-                    return rankedImages;
-                },
-                false
-        );
-        List<Image> rankedImages = executionResult.value();
-
-        if (log.isTraceEnabled()) {
-            log.trace(JsonUtil.writeToString(rankedImages));
-        }
-        return rankedImages;
     }
 
     private <T, R> AggregateExecutionResult<R> executeAggregate(
@@ -202,23 +178,17 @@ public class ImageDataAccess implements AutoCloseable {
         }
     }
 
-    private ImageSearchResult buildRankedSearchResult(List<Image> rankedImages, int skip, QueryStats stats) {
-        ImageSearchResult imageSearchResult = new ImageSearchResult(
-                rankedImages.stream().skip(skip).limit(SearchPipelines.pageSize()).toList(),
-                List.of(HybridRanker.buildMeta(rankedImages)),
-                stats
-        );
-        if (log.isTraceEnabled()) {
-            log.trace(JsonUtil.writeToString(imageSearchResult));
-        }
-        return imageSearchResult;
-    }
-
     @Override
     public void close() {
         // MongoConnection manages the shared client lifecycle for the app.
     }
 
     private record AggregateExecutionResult<T>(T value, QueryStats stats) {
+    }
+
+    public record VectorSearchIndexState(boolean available, int documentCount) {
+        private static VectorSearchIndexState unavailable() {
+            return new VectorSearchIndexState(false, 0);
+        }
     }
 }

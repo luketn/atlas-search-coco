@@ -73,16 +73,8 @@ public class MongoConnection {
         createAtlasIndex(databaseName, collectionName, Document.class, indexName, mappingsDocument, List.of());
     }
 
-    public static void createAtlasVectorIndex(String databaseName, String collectionName, String indexName, BsonDocument definitionDocument) {
-        createAtlasVectorIndex(databaseName, collectionName, Document.class, indexName, definitionDocument, List.of());
-    }
-
     public static <T> void createAtlasIndex(String databaseName, String collectionName, Class<T> clazz, String indexName, BsonDocument mappingsDocument, List<T> sampleDocuments) {
         createSearchIndex(databaseName, collectionName, clazz, indexName, mappingsDocument, SearchIndexType.search(), sampleDocuments);
-    }
-
-    public static <T> void createAtlasVectorIndex(String databaseName, String collectionName, Class<T> clazz, String indexName, BsonDocument definitionDocument, List<T> sampleDocuments) {
-        createSearchIndex(databaseName, collectionName, clazz, indexName, definitionDocument, SearchIndexType.vectorSearch(), sampleDocuments);
     }
 
     private static <T> void createSearchIndex(String databaseName, String collectionName, Class<T> clazz, String indexName, BsonDocument definitionDocument, SearchIndexType searchIndexType, List<T> sampleDocuments) {

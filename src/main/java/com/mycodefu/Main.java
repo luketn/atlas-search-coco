@@ -14,7 +14,6 @@ import com.mycodefu.mongodb.search.SearchRequest;
 import com.mycodefu.service.SimpleServer;
 
 import java.io.IOException;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -36,7 +35,7 @@ public class Main {
 
         boolean vectorSearchEnabledAtStartup;
         try (ImageDataAccess imageDataAccess = ImageDataAccess.getInstance()) {
-            vectorSearchEnabledAtStartup = imageDataAccess.hasVectorSearchIndex();
+            vectorSearchEnabledAtStartup = imageDataAccess.refreshVectorSearchIndexState().available();
         }
 
         SearchCapabilities searchCapabilities = new SearchCapabilities(vectorSearchEnabledAtStartup);
@@ -66,21 +65,20 @@ public class Main {
                     long javaStartedAtNanos = System.nanoTime();
                     String text = firstParam(params, "text");
 
-                    EnumSet<SearchType> searchTypes = parseSearchTypes(params);
-                    if (searchTypes.contains(SearchType.Vector) && !searchCapabilities.vectorSearchEnabled()) {
+                    SearchType searchType = parseSearchType(params);
+                    if (searchType != SearchType.Text && !searchCapabilities.vectorSearchEnabled()) {
                         return "Vector search is unavailable because the vector search index was not present at startup.";
                     }
 
                     Integer page = params.containsKey("page")
                             ? Integer.parseInt(firstParam(params, "page"))
                             : 0;
-                    Double vectorCutoff = doubleParam(params, "vectorCutoff");
                     boolean includeLicense = Boolean.parseBoolean(firstParam(params, "includeLicense"));
 
                     try (ImageDataAccess imageDataAccess = ImageDataAccess.getInstance()) {
                         SearchRequest request = SearchRequest.of(
                                 text,
-                                searchTypes,
+                                searchType,
                                 page,
                                 new SearchFilters(
                                         booleanParam(params, "hasPerson"),
@@ -95,7 +93,6 @@ public class Main {
                                         listParam(params, "sports"),
                                         listParam(params, "vehicle")
                                 ),
-                                vectorCutoff,
                                 includeLicense
                         );
                         ImageSearchResult result = imageDataAccess.search(request);
@@ -109,13 +106,14 @@ public class Main {
         server.start();
     }
 
-    private static EnumSet<SearchType> parseSearchTypes(Map<String, List<String>> params) {
+    private static SearchType parseSearchType(Map<String, List<String>> params) {
         List<String> rawValues = params.get("searchType");
         if (rawValues == null || rawValues.isEmpty()) {
-            return EnumSet.of(SearchType.Text);
+            return SearchType.Text;
         }
 
-        EnumSet<SearchType> searchTypes = EnumSet.noneOf(SearchType.class);
+        boolean sawText = false;
+        boolean sawVector = false;
         for (String rawValue : rawValues) {
             if (rawValue == null || rawValue.isBlank()) {
                 continue;
@@ -124,11 +122,23 @@ public class Main {
                 if (token.isBlank()) {
                     continue;
                 }
-                searchTypes.add(SearchType.valueOf(token.trim()));
+                String normalised = token.trim();
+                if ("Both".equalsIgnoreCase(normalised)) {
+                    return SearchType.Combined;
+                }
+                SearchType parsed = SearchType.valueOf(normalised);
+                sawText = sawText || parsed == SearchType.Text;
+                sawVector = sawVector || parsed == SearchType.Vector || parsed == SearchType.Combined;
             }
         }
 
-        return searchTypes.isEmpty() ? EnumSet.of(SearchType.Text) : searchTypes;
+        if (sawText && sawVector) {
+            return SearchType.Combined;
+        }
+        if (sawVector) {
+            return SearchType.Vector;
+        }
+        return SearchType.Text;
     }
 
     private static String firstParam(Map<String, List<String>> params, String key) {
@@ -144,11 +154,6 @@ public class Main {
     private static List<String> listParam(Map<String, List<String>> params, String key) {
         String value = firstParam(params, key);
         return value == null || value.isBlank() ? null : List.of(value.split(","));
-    }
-
-    private static Double doubleParam(Map<String, List<String>> params, String key) {
-        String value = firstParam(params, key);
-        return value == null || value.isBlank() ? null : Double.parseDouble(value);
     }
 
     private static String writeSearchResult(ImageSearchResult result, long javaStartedAtNanos) {

@@ -334,9 +334,7 @@
         FormControlLabel,
         FormControl,
         TextField,
-        Slider,
         Box,
-        Grid,
         Button,
         Chip,
         CircularProgress,
@@ -355,9 +353,7 @@
         'vehicle'
     ];
     const PAGE_SIZE = 10;
-    const DEFAULT_VECTOR_CUTOFF = 0.88;
     const SEARCH_TYPE_STORAGE_KEY = 'atlasCoco.searchTypeSelection';
-    const VECTOR_CUTOFF_STORAGE_KEY = 'atlasCoco.vectorCutoff';
 
     function toTitleCase(value) {
         return value.charAt(0).toUpperCase() + value.slice(1);
@@ -370,18 +366,14 @@
         }, {});
     }
 
-    function buildSearchParams({ query, page, searchTypes, hasPerson, filters, vectorCutoff }) {
+    function buildSearchParams({ query, page, searchType, hasPerson, filters }) {
         const params = new URLSearchParams();
         const trimmedQuery = query.trim();
         if (trimmedQuery) {
             params.set('text', trimmedQuery);
         }
         params.set('page', String(page));
-
-        searchTypes.forEach(searchType => params.append('searchType', searchType));
-        if (searchTypes.includes('Vector')) {
-            params.set('vectorCutoff', vectorCutoff.toFixed(2));
-        }
+        params.set('searchType', searchType);
 
         if (hasPerson === 'true' || hasPerson === 'false') {
             params.set('hasPerson', hasPerson);
@@ -396,17 +388,11 @@
         return params;
     }
 
-    function getActiveSearchTypes(searchTypeSelection, vectorSearchEnabled) {
+    function getRequestedSearchType(searchTypeSelection, vectorSearchEnabled) {
         if (!vectorSearchEnabled) {
-            return ['Text'];
+            return 'Text';
         }
-        if (searchTypeSelection === 'Vector') {
-            return ['Vector'];
-        }
-        if (searchTypeSelection === 'Both') {
-            return ['Text', 'Vector'];
-        }
-        return ['Text'];
+        return searchTypeSelection;
     }
 
     function getSearchPlaceholder(searchTypeSelection, vectorSearchEnabled) {
@@ -421,15 +407,10 @@
 
     function readStoredSearchType() {
         const storedValue = window.localStorage.getItem(SEARCH_TYPE_STORAGE_KEY);
-        return ['Text', 'Vector', 'Both'].includes(storedValue) ? storedValue : 'Text';
-    }
-
-    function readStoredVectorCutoff() {
-        const storedValue = Number.parseFloat(window.localStorage.getItem(VECTOR_CUTOFF_STORAGE_KEY) || '');
-        if (Number.isNaN(storedValue)) {
-            return DEFAULT_VECTOR_CUTOFF;
+        if (storedValue === 'Both') {
+            return 'Combined';
         }
-        return Math.min(1, Math.max(0, storedValue));
+        return ['Text', 'Vector', 'Combined'].includes(storedValue) ? storedValue : 'Text';
     }
 
     function App() {
@@ -442,7 +423,6 @@
         const [optionsByFilter, setOptionsByFilter] = useState(createEmptyFilterState());
         const [hasPerson, setHasPerson] = useState('any');
         const [searchTypeSelection, setSearchTypeSelection] = useState(readStoredSearchType);
-        const [vectorCutoff, setVectorCutoff] = useState(readStoredVectorCutoff);
         const [vectorSearchEnabled, setVectorSearchEnabled] = useState(false);
         const [searchError, setSearchError] = useState('');
         const [loadingPage, setLoadingPage] = useState(false);
@@ -454,10 +434,12 @@
         const domain = document.location.host.includes('localhost') ? 'http://localhost:8222' : '';
         const currentPageDocs = pageDocs[page] || [];
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-        const activeSearchTypes = useMemo(
-            () => getActiveSearchTypes(searchTypeSelection, vectorSearchEnabled),
+        const requestedSearchType = useMemo(
+            () => getRequestedSearchType(searchTypeSelection, vectorSearchEnabled),
             [searchTypeSelection, vectorSearchEnabled]
         );
+        const effectiveSearchLabel = query.trim() ? requestedSearchType : 'Browse';
+        const showFacetCounts = requestedSearchType === 'Text' || !query.trim();
         const searchPlaceholder = getSearchPlaceholder(searchTypeSelection, vectorSearchEnabled);
 
         useEffect(() => {
@@ -513,15 +495,10 @@
         }, [searchTypeSelection]);
 
         useEffect(() => {
-            window.localStorage.setItem(VECTOR_CUTOFF_STORAGE_KEY, vectorCutoff.toFixed(2));
-        }, [vectorCutoff]);
-
-        useEffect(() => {
             const requestKey = JSON.stringify({
                 query,
                 page,
-                searchTypes: activeSearchTypes,
-                vectorCutoff,
+                searchType: requestedSearchType,
                 hasPerson,
                 filters,
             });
@@ -531,8 +508,7 @@
             const params = buildSearchParams({
                 query,
                 page,
-                searchTypes: activeSearchTypes,
-                vectorCutoff,
+                searchType: requestedSearchType,
                 hasPerson,
                 filters,
             });
@@ -583,14 +559,13 @@
                         setLoadingPage(false);
                     }
                 });
-        }, [query, page, filters, hasPerson, activeSearchTypes, vectorCutoff]);
+        }, [query, page, filters, hasPerson, requestedSearchType]);
 
         function fetchPageData(targetPage) {
             const params = buildSearchParams({
                 query,
                 page: targetPage,
-                searchTypes: activeSearchTypes,
-                vectorCutoff,
+                searchType: requestedSearchType,
                 hasPerson,
                 filters,
             });
@@ -762,7 +737,7 @@
                                                         onChange={event => toggleFilter(key, value, event.target.checked)}
                                                     />
                                                 }
-                                                label={`${value} (${facetCount(key, value)})`}
+                                                label={showFacetCounts ? `${value} (${facetCount(key, value)})` : value}
                                             />
                                         </FormControl>
                                     ))}
@@ -780,32 +755,9 @@
                                     }}>
                                         <FormControlLabel value="Text" control={<Radio />} label="Text" />
                                         <FormControlLabel value="Vector" control={<Radio />} label="Vector" />
-                                        <FormControlLabel value="Both" control={<Radio />} label="Both" />
+                                        <FormControlLabel value="Combined" control={<Radio />} label="Combined" />
                                     </RadioGroup>
                                 </FormControl>
-
-                                <Box sx={{ marginTop: 2, opacity: activeSearchTypes.includes('Vector') ? 1 : 0.5 }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
-                                        <Typography style={{ fontWeight: 800 }}>Vector Cutoff</Typography>
-                                        <Typography color="textSecondary">{vectorCutoff.toFixed(2)}</Typography>
-                                    </Box>
-                                    <Slider
-                                        value={vectorCutoff}
-                                        min={0.5}
-                                        max={1}
-                                        step={0.01}
-                                        marks={[
-                                            { value: 0.5, label: '0.50' },
-                                            { value: 0.88, label: '0.88' },
-                                            { value: 1, label: '1.00' }
-                                        ]}
-                                        disabled={!activeSearchTypes.includes('Vector')}
-                                        onChange={(event, value) => {
-                                            setPage(0);
-                                            setVectorCutoff(Array.isArray(value) ? value[0] : value);
-                                        }}
-                                    />
-                                </Box>
                             </div>
                         )}
                     </aside>
@@ -818,7 +770,7 @@
                                 </Typography>
                                 <Typography variant="body2" color="textSecondary">
                                     {vectorSearchEnabled
-                                        ? `${total} results - ${activeSearchTypes.join(' + ')} - ${PAGE_SIZE} per page`
+                                        ? `${total} results - ${effectiveSearchLabel} - ${PAGE_SIZE} per page`
                                         : `${total} results - ${PAGE_SIZE} per page`}
                                 </Typography>
                                 {searchError && (

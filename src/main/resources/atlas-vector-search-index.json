@@ -21,56 +21,70 @@
       "vehicle"
     ]
   },
-  "fields": [
-    {
-      "type": "vector",
-      "path": "captionEmbedding",
-      "numDimensions": 768,
-      "similarity": "cosine"
-    },
-    {
-      "type": "filter",
-      "path": "hasPerson"
-    },
-    {
-      "type": "filter",
-      "path": "animal"
-    },
-    {
-      "type": "filter",
-      "path": "appliance"
-    },
-    {
-      "type": "filter",
-      "path": "electronic"
-    },
-    {
-      "type": "filter",
-      "path": "food"
-    },
-    {
-      "type": "filter",
-      "path": "furniture"
-    },
-    {
-      "type": "filter",
-      "path": "indoor"
-    },
-    {
-      "type": "filter",
-      "path": "kitchen"
-    },
-    {
-      "type": "filter",
-      "path": "outdoor"
-    },
-    {
-      "type": "filter",
-      "path": "sports"
-    },
-    {
-      "type": "filter",
-      "path": "vehicle"
+  "mappings": {
+    "dynamic": false,
+    "fields": {
+      "caption": {
+        "type": "string"
+      },
+      "captionEmbedding": {
+        "type": "vector",
+        "numDimensions": 768,
+        "similarity": "cosine"
+      },
+      "hasPerson": {
+        "type": "boolean"
+      },
+      "animal": [
+        {
+          "type": "token"
+        }
+      ],
+      "appliance": [
+        {
+          "type": "token"
+        }
+      ],
+      "electronic": [
+        {
+          "type": "token"
+        }
+      ],
+      "food": [
+        {
+          "type": "token"
+        }
+      ],
+      "furniture": [
+        {
+          "type": "token"
+        }
+      ],
+      "indoor": [
+        {
+          "type": "token"
+        }
+      ],
+      "kitchen": [
+        {
+          "type": "token"
+        }
+      ],
+      "outdoor": [
+        {
+          "type": "token"
+        }
+      ],
+      "sports": [
+        {
+          "type": "token"
+        }
+      ],
+      "vehicle": [
+        {
+          "type": "token"
+        }
+      ]
     }
-  ]
+  }
 }

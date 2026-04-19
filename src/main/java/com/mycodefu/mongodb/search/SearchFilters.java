@@ -42,15 +42,8 @@ public record SearchFilters(
         return buildClauses(SearchFilters::equalsClause);
     }
 
-    public Document toVectorFilterDocument() {
-        ArrayList<Document> clauses = buildClauses(Document::new);
-        if (clauses.isEmpty()) {
-            return new Document();
-        }
-        if (clauses.size() == 1) {
-            return clauses.getFirst();
-        }
-        return new Document("$and", clauses);
+    public List<Document> toSearchClauseDocuments() {
+        return buildClauses(SearchFilters::equalsClauseDocument);
     }
 
     private <T> ArrayList<T> buildClauses(BiFunction<String, Object, T> clauseFactory) {
@@ -72,6 +65,10 @@ public record SearchFilters(
 
     private static SearchOperator equalsClause(String fieldName, Object value) {
         return SearchOperator.of(new Document("equals", new Document("path", fieldName).append("value", value)));
+    }
+
+    private static Document equalsClauseDocument(String fieldName, Object value) {
+        return new Document("equals", new Document("path", fieldName).append("value", value));
     }
 
     private static List<String> normalise(List<String> values) {

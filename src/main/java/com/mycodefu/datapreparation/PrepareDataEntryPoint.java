@@ -88,7 +88,7 @@ public class PrepareDataEntryPoint {
     private static void buildAtlasVectorIndex() throws IOException {
         String indexResource = readIndexResource("/atlas-vector-search-index.json");
 
-        MongoConnection.createAtlasVectorIndex(
+        MongoConnection.createAtlasIndex(
                 MongoConnection.database_name,
                 ImageDataAccess.collection_name,
                 MongoConnection.vector_index_name,

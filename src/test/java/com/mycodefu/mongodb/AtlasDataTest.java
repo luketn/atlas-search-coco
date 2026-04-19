@@ -61,7 +61,7 @@ abstract class AtlasDataTest {
         }
 
         var atlasVectorMappings = BsonDocument.parse(atlasVectorMappingsString);
-        MongoConnection.createAtlasVectorIndex(
+        MongoConnection.createAtlasIndex(
                 MongoConnection.database_name,
                 ImageDataAccess.collection_name,
                 MongoConnection.vector_index_name,

@@ -12,17 +12,26 @@ public final class SearchProjection {
     private SearchProjection() {
     }
 
-    public static Document projectStage(boolean includeLicense, boolean includeHybridScore) {
-        return new Document("$project", imageProjection(includeLicense, includeHybridScore));
+    public static Document projectStage(boolean includeLicense) {
+        return new Document("$project", imageProjection(includeLicense));
     }
 
-    public static Document scoreProjectionStage(String scoreMetaField, boolean includeLicense) {
-        Document projection = imageProjection(includeLicense, false);
-        projection.append("_rawScore", new Document("$meta", scoreMetaField));
-        return new Document("$project", projection);
+    public static Document docEnvelopeStage() {
+        return new Document("$project", new Document("doc", "$$ROOT").append("__resultType", "doc"));
     }
 
-    public static Document imageProjection(boolean includeLicense, boolean includeHybridScore) {
+    public static Document metaEnvelopeStage() {
+        return new Document("$project", new Document("meta",
+                new Document("count", new Document("total", "$count.total"))
+                        .append("facet", null))
+                .append("__resultType", "meta"));
+    }
+
+    public static Document countedMetaEnvelopeStage() {
+        return new Document("$project", new Document("count", new Document("total", "$total")).append("facet", null));
+    }
+
+    public static Document imageProjection(boolean includeLicense) {
         Document projection = new Document();
         for (String field : IMAGE_FIELDS) {
             projection.append(field, 1);
@@ -31,9 +40,6 @@ public final class SearchProjection {
             for (String field : LICENSE_FIELDS) {
                 projection.append(field, 1);
             }
-        }
-        if (includeHybridScore) {
-            projection.append("hybridScore", 1);
         }
         return projection;
     }
