@@ -7,8 +7,11 @@ import com.mongodb.event.CommandListener;
 import com.mongodb.event.CommandStartedEvent;
 import com.mongodb.event.CommandSucceededEvent;
 import com.mycodefu.model.QueryStats;
+import com.mycodefu.mongodb.ImageDataAccess;
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -347,4 +350,5 @@ public final class MongoConnectionTracing {
         SUCCEEDED,
         FAILED
     }
+
 }

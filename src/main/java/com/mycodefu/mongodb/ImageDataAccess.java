@@ -6,19 +6,19 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
-import com.mycodefu.datapreparation.util.JsonUtil;
 import com.mycodefu.lmstudio.LMStudioEmbedding;
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.model.QueryStats;
 import com.mycodefu.mongodb.atlas.MongoConnection;
 import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
+import com.mycodefu.mongodb.atlas.MongoConnectionTracingLogResult;
+import com.mycodefu.mongodb.atlas.MongoConnectionTracingLogSearch;
 import com.mycodefu.mongodb.search.SearchPipelines;
 import com.mycodefu.mongodb.search.SearchPlanner;
 import com.mycodefu.mongodb.search.SearchRequest;
 import org.bson.Document;
 import org.bson.conversions.Bson;
-import org.bson.json.JsonWriterSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,10 +71,6 @@ public class ImageDataAccess implements AutoCloseable {
     public VectorSearchIndexState refreshVectorSearchIndexState() {
         cachedVectorSearchIndexState = loadVectorSearchIndexState();
         return cachedVectorSearchIndexState;
-    }
-
-    public boolean hasVectorSearchIndex() {
-        return vectorSearchIndexState().available();
     }
 
     public ImageSearchResult search(SearchRequest request) {
@@ -130,9 +126,7 @@ public class ImageDataAccess implements AutoCloseable {
 
         ImageSearchResult aggregateResult = executionResult.value();
         ImageSearchResult imageSearchResult = normaliseSearchResult(aggregateResult, executionResult.stats());
-        if (log.isDebugEnabled()) {
-            log.debug(JsonUtil.writeToString(imageSearchResult));
-        }
+        MongoConnectionTracingLogResult.trace(imageSearchResult);
         return imageSearchResult;
     }
 
@@ -164,7 +158,7 @@ public class ImageDataAccess implements AutoCloseable {
             Function<MongoCursor<T>, R> reader,
             boolean collectStats
     ) {
-        tracePipeline(aggregateStages);
+        MongoConnectionTracingLogSearch.trace(aggregateStages);
 
         String traceId = null;
         if (MongoConnectionTracing.isTracingEnabled()) {
@@ -184,14 +178,6 @@ public class ImageDataAccess implements AutoCloseable {
             }
         }
         return new AggregateExecutionResult<>(value, stats);
-    }
-
-    private void tracePipeline(List<? extends Bson> aggregateStages) {
-        if (log.isTraceEnabled()) {
-            for (Bson aggregateStage : aggregateStages) {
-                System.out.println(aggregateStage.toBsonDocument().toJson(JsonWriterSettings.builder().indent(true).build()));
-            }
-        }
     }
 
     @Override
