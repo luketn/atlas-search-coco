@@ -110,9 +110,13 @@ public class SimpleServer {
                     exchange.getResponseBody().write(bytes);
                     exchange.close();
 
-                } catch (IOException e) {
+                } catch (Exception e) {
                     log.error("Error handling request", e);
-                    throw new RuntimeException(e);
+                    byte[] bytes = ("Error handling request: " + e.getMessage()).getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().add("Content-Type", "text/plain");
+                    exchange.sendResponseHeaders(500, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
                 }
             });
             return this;

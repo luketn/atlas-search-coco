@@ -483,7 +483,7 @@ public class ImageDataAccess implements AutoCloseable {
     }
 
     public void close() {
-        mongoClient.close();
+        // MongoConnection manages the shared client lifecycle for the app.
     }
 
     private record SearchFilters(
