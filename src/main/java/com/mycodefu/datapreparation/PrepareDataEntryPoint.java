@@ -1,5 +1,6 @@
 package com.mycodefu.datapreparation;
 
+import com.mycodefu.lmstudio.LMStudioEmbedding;
 import com.mycodefu.model.Category;
 import com.mycodefu.model.Image;
 import com.mycodefu.datapreparation.source.License;
@@ -39,18 +40,25 @@ public class PrepareDataEntryPoint {
     private static final Logger log = LoggerFactory.getLogger(PrepareDataEntryPoint.class);
 
     public static void main(String[] args) throws IOException {
-        downloadAndInitialiseDataset();
+        downloadAndInitialiseDataset(false);
     }
 
     public static void downloadAndInitialiseDataset() throws IOException {
+        downloadAndInitialiseDataset(false);
+    }
+
+    public static void downloadAndInitialiseDataset(boolean includeVectorEmbeddings) throws IOException {
         CocoDataset cocoDataset = downloadCocoDataset();
 
         List<Category> categories = getCategories(cocoDataset);
-        List<Image> images = getImages(cocoDataset);
+        List<Image> images = getImages(cocoDataset, includeVectorEmbeddings);
 
         writeToLocalMongoDB(categories, images);
 
         buildAtlasIndex();
+        if (includeVectorEmbeddings) {
+            buildAtlasVectorIndex();
+        }
 
         // uncomment to refresh the data in the test resources
 //         writeSampleData(images, categories);
@@ -67,9 +75,7 @@ public class PrepareDataEntryPoint {
     }
 
     private static void buildAtlasIndex() throws IOException {
-        URL resource = PrepareDataEntryPoint.class.getResource("/atlas-search-index.json");
-        Path path = Path.of(Objects.requireNonNull(resource).getPath());
-        String indexResource = Files.readString(path);
+        String indexResource = readIndexResource("/atlas-search-index.json");
 
         MongoConnection.createAtlasIndex(
             MongoConnection.database_name,
@@ -77,6 +83,23 @@ public class PrepareDataEntryPoint {
             MongoConnection.index_name,
             BsonDocument.parse(indexResource)
         );
+    }
+
+    private static void buildAtlasVectorIndex() throws IOException {
+        String indexResource = readIndexResource("/atlas-vector-search-index.json");
+
+        MongoConnection.createAtlasVectorIndex(
+                MongoConnection.database_name,
+                ImageDataAccess.collection_name,
+                MongoConnection.vector_index_name,
+                BsonDocument.parse(indexResource)
+        );
+    }
+
+    private static String readIndexResource(String resourcePath) throws IOException {
+        URL resource = PrepareDataEntryPoint.class.getResource(resourcePath);
+        Path path = Path.of(Objects.requireNonNull(resource).getPath());
+        return Files.readString(path);
     }
 
     private static void writeSampleData(List<Image> images, List<Category> categories) {
@@ -118,7 +141,7 @@ public class PrepareDataEntryPoint {
         return animalImageInfos;
     }
 
-    private static List<Image> getImages(CocoDataset cocoDataset) {
+    private static List<Image> getImages(CocoDataset cocoDataset, boolean includeVectorEmbeddings) {
         Map<Integer, List<CaptionDataSource.Annotation>> annotationMap = new HashMap<>();
         for (CaptionDataSource.Annotation annotation : cocoDataset.captionDataSource().annotations()) {
             annotationMap.computeIfAbsent(annotation.image_id(), k -> new ArrayList<>()).add(annotation);
@@ -175,10 +198,16 @@ public class PrepareDataEntryPoint {
             List<String> vehicle = categoriesForSuperCategory(objects, "vehicle");
 
             License license = licenseMap.get(image.license());
+            String caption = getCaption(captions);
+            LMStudioEmbedding.EmbeddingResult embedding = includeVectorEmbeddings
+                    ? LMStudioEmbedding.embed(caption)
+                    : null;
 
             Image imageInfo = new Image(
                     image.id(),
-                    getCaption(captions),
+                    caption,
+                    embedding == null ? null : embedding.embedding(),
+                    embedding == null ? null : embedding.model(),
                     image.coco_url(),
                     image.height(),
                     image.width(),

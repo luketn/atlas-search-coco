@@ -3,6 +3,8 @@ package com.mycodefu.mongodb.atlas;
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.*;
+import com.mongodb.client.model.SearchIndexModel;
+import com.mongodb.client.model.SearchIndexType;
 import org.bson.BsonDocument;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecProvider;
@@ -28,6 +30,7 @@ public class MongoConnection {
 
     public static final String database_name = System.getenv("DATABASE_NAME") != null ? System.getenv("DATABASE_NAME") : "atlasSearchCoco";
     public static final String index_name = System.getenv("INDEX_NAME") != null ? System.getenv("INDEX_NAME") : "default";
+    public static final String vector_index_name = System.getenv("VECTOR_INDEX_NAME") != null ? System.getenv("VECTOR_INDEX_NAME") : "vector_caption";
 
     private static String connection_string = System.getenv("CONNECTION_STRING") != null ? System.getenv("CONNECTION_STRING") : "mongodb://localhost:27017/directConnection=true";
     private static MongoClient mongo_client = null;
@@ -70,7 +73,19 @@ public class MongoConnection {
         createAtlasIndex(databaseName, collectionName, Document.class, indexName, mappingsDocument, List.of());
     }
 
+    public static void createAtlasVectorIndex(String databaseName, String collectionName, String indexName, BsonDocument definitionDocument) {
+        createAtlasVectorIndex(databaseName, collectionName, Document.class, indexName, definitionDocument, List.of());
+    }
+
     public static <T> void createAtlasIndex(String databaseName, String collectionName, Class<T> clazz, String indexName, BsonDocument mappingsDocument, List<T> sampleDocuments) {
+        createSearchIndex(databaseName, collectionName, clazz, indexName, mappingsDocument, SearchIndexType.search(), sampleDocuments);
+    }
+
+    public static <T> void createAtlasVectorIndex(String databaseName, String collectionName, Class<T> clazz, String indexName, BsonDocument definitionDocument, List<T> sampleDocuments) {
+        createSearchIndex(databaseName, collectionName, clazz, indexName, definitionDocument, SearchIndexType.vectorSearch(), sampleDocuments);
+    }
+
+    private static <T> void createSearchIndex(String databaseName, String collectionName, Class<T> clazz, String indexName, BsonDocument definitionDocument, SearchIndexType searchIndexType, List<T> sampleDocuments) {
         MongoDatabase database = connection().getDatabase(databaseName);
         MongoCollection<T> collection = database.getCollection(collectionName, clazz);
 
@@ -80,7 +95,7 @@ public class MongoConnection {
         }
 
         Instant start = Instant.now();
-        boolean indexCreated = createIndex(indexName, mappingsDocument, collection);
+        boolean indexCreated = createIndex(indexName, definitionDocument, searchIndexType, collection);
         if (!indexCreated) {
             throw new RuntimeException("Failed to create Atlas search index %s".formatted(indexName));
         }
@@ -92,15 +107,17 @@ public class MongoConnection {
         log.info("Time taken to create atlas index %s on collection %s: %s".formatted(indexName, collectionName, timeElapsed));
     }
 
-    private static boolean createIndex(String indexName, BsonDocument mappingsDocument, MongoCollection<?> collection) {
+    private static boolean createIndex(String indexName, BsonDocument definitionDocument, SearchIndexType searchIndexType, MongoCollection<?> collection) {
         boolean indexCreated = false;
         try {
             dropSearchIndex(indexName, collection);
             if (log.isDebugEnabled()) {
-                Set<String> fields = mappingsDocument.getDocument("mappings").getDocument("fields").keySet();
+                Set<String> fields = definitionDocument.containsKey("mappings")
+                        ? definitionDocument.getDocument("mappings").getDocument("fields").keySet()
+                        : Set.of("vector");
                 log.debug("Creating Atlas search index '%s' with fields: %s".formatted(indexName, fields));
             }
-            collection.createSearchIndex(indexName, mappingsDocument);
+            collection.createSearchIndexes(List.of(new SearchIndexModel(indexName, definitionDocument, searchIndexType)));
             log.debug("Atlas search index '%s' created".formatted(indexName));
             indexCreated = true;
         } catch (Exception e) {

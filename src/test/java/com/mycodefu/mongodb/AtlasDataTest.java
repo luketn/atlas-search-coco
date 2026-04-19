@@ -48,5 +48,24 @@ abstract class AtlasDataTest {
                 MongoConnection.index_name,
                 atlasSearchMappings
         );
+
+        String atlasVectorMappingsString;
+        try {
+            URL resource = AtlasDataTest.class.getResource("/atlas-vector-search-index-test.json");
+            if (resource == null) {
+                throw new RuntimeException("Resource not found");
+            }
+            atlasVectorMappingsString = Resources.toString(resource, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        var atlasVectorMappings = BsonDocument.parse(atlasVectorMappingsString);
+        MongoConnection.createAtlasVectorIndex(
+                MongoConnection.database_name,
+                ImageDataAccess.collection_name,
+                MongoConnection.vector_index_name,
+                atlasVectorMappings
+        );
     }
 }

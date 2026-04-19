@@ -1,0 +1,54 @@
+{
+  "fields": [
+    {
+      "type": "vector",
+      "path": "captionEmbedding",
+      "numDimensions": 768,
+      "similarity": "cosine"
+    },
+    {
+      "type": "filter",
+      "path": "hasPerson"
+    },
+    {
+      "type": "filter",
+      "path": "animal"
+    },
+    {
+      "type": "filter",
+      "path": "appliance"
+    },
+    {
+      "type": "filter",
+      "path": "electronic"
+    },
+    {
+      "type": "filter",
+      "path": "food"
+    },
+    {
+      "type": "filter",
+      "path": "furniture"
+    },
+    {
+      "type": "filter",
+      "path": "indoor"
+    },
+    {
+      "type": "filter",
+      "path": "kitchen"
+    },
+    {
+      "type": "filter",
+      "path": "outdoor"
+    },
+    {
+      "type": "filter",
+      "path": "sports"
+    },
+    {
+      "type": "filter",
+      "path": "vehicle"
+    }
+  ]
+}
