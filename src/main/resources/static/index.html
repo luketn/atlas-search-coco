@@ -386,6 +386,29 @@
         return params;
     }
 
+    function getActiveSearchTypes(searchTypeSelection, vectorSearchEnabled) {
+        if (!vectorSearchEnabled) {
+            return ['Text'];
+        }
+        if (searchTypeSelection === 'Vector') {
+            return ['Vector'];
+        }
+        if (searchTypeSelection === 'Both') {
+            return ['Text', 'Vector'];
+        }
+        return ['Text'];
+    }
+
+    function getSearchPlaceholder(searchTypeSelection, vectorSearchEnabled) {
+        if (!vectorSearchEnabled || searchTypeSelection === 'Text') {
+            return 'Search image captions with keyword text';
+        }
+        if (searchTypeSelection === 'Vector') {
+            return 'Search by semantic meaning with vector similarity';
+        }
+        return 'Search with combined text and vector ranking';
+    }
+
     function App() {
         const [query, setQuery] = useState('');
         const [page, setPage] = useState(0);
@@ -395,7 +418,7 @@
         const [filters, setFilters] = useState(createEmptyFilterState());
         const [optionsByFilter, setOptionsByFilter] = useState(createEmptyFilterState());
         const [hasPerson, setHasPerson] = useState('any');
-        const [searchTypes, setSearchTypes] = useState(['Text']);
+        const [searchTypeSelection, setSearchTypeSelection] = useState('Text');
         const [vectorSearchEnabled, setVectorSearchEnabled] = useState(false);
         const [searchError, setSearchError] = useState('');
         const [loadingPage, setLoadingPage] = useState(false);
@@ -407,6 +430,8 @@
         const domain = document.location.host.includes('localhost') ? 'http://localhost:8222' : '';
         const currentPageDocs = pageDocs[page] || [];
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        const activeSearchTypes = getActiveSearchTypes(searchTypeSelection, vectorSearchEnabled);
+        const searchPlaceholder = getSearchPlaceholder(searchTypeSelection, vectorSearchEnabled);
 
         useEffect(() => {
             fetch(`${domain}/capabilities`)
@@ -451,13 +476,12 @@
         }, []);
 
         useEffect(() => {
-            if (!vectorSearchEnabled && searchTypes.includes('Vector')) {
-                setSearchTypes(['Text']);
+            if (!vectorSearchEnabled && searchTypeSelection !== 'Text') {
+                setSearchTypeSelection('Text');
             }
-        }, [vectorSearchEnabled]);
+        }, [vectorSearchEnabled, searchTypeSelection]);
 
         useEffect(() => {
-            const activeSearchTypes = vectorSearchEnabled ? searchTypes : ['Text'];
             const requestKey = JSON.stringify({
                 query,
                 page,
@@ -522,10 +546,9 @@
                         setLoadingPage(false);
                     }
                 });
-        }, [query, page, filters, hasPerson, searchTypes, vectorSearchEnabled]);
+        }, [query, page, filters, hasPerson, activeSearchTypes]);
 
         function fetchPageData(targetPage) {
-            const activeSearchTypes = vectorSearchEnabled ? searchTypes : ['Text'];
             const params = buildSearchParams({
                 query,
                 page: targetPage,
@@ -554,16 +577,6 @@
                     }
                     return docs;
                 });
-        }
-
-        function toggleSearchType(type, checked) {
-            setPage(0);
-            setSearchTypes(previous => {
-                const next = checked
-                    ? Array.from(new Set([...previous, type]))
-                    : previous.filter(item => item !== type);
-                return next.length === 0 ? ['Text'] : next;
-            });
         }
 
         function toggleFilter(key, value, checked) {
@@ -653,7 +666,8 @@
                         <TextField
                             fullWidth
                             variant="outlined"
-                            label="Search captions and semantic meaning"
+                            label="Search"
+                            placeholder={searchPlaceholder}
                             value={query}
                             onChange={event => {
                                 setPage(0);
@@ -699,24 +713,16 @@
                         {vectorSearchEnabled && (
                             <div className="filter-group">
                                 <div className="section-label">Search Type</div>
-                                <FormControlLabel
-                                    control={
-                                        <Checkbox
-                                            checked={searchTypes.includes('Text')}
-                                            onChange={event => toggleSearchType('Text', event.target.checked)}
-                                        />
-                                    }
-                                    label="Text"
-                                />
-                                <FormControlLabel
-                                    control={
-                                        <Checkbox
-                                            checked={searchTypes.includes('Vector')}
-                                            onChange={event => toggleSearchType('Vector', event.target.checked)}
-                                        />
-                                    }
-                                    label="Vector"
-                                />
+                                <FormControl component="fieldset">
+                                    <RadioGroup value={searchTypeSelection} onChange={event => {
+                                        setPage(0);
+                                        setSearchTypeSelection(event.target.value);
+                                    }}>
+                                        <FormControlLabel value="Text" control={<Radio />} label="Text" />
+                                        <FormControlLabel value="Vector" control={<Radio />} label="Vector" />
+                                        <FormControlLabel value="Both" control={<Radio />} label="Both" />
+                                    </RadioGroup>
+                                </FormControl>
                             </div>
                         )}
 
@@ -751,7 +757,7 @@
                                 </Typography>
                                 <Typography variant="body2" color="textSecondary">
                                     {vectorSearchEnabled
-                                        ? `${total} results - ${searchTypes.join(' + ')} - ${PAGE_SIZE} per page`
+                                        ? `${total} results - ${activeSearchTypes.join(' + ')} - ${PAGE_SIZE} per page`
                                         : `${total} results - ${PAGE_SIZE} per page`}
                                 </Typography>
                                 {searchError && (
