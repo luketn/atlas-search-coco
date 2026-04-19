@@ -1,4 +1,26 @@
 {
+  "storedSource": {
+    "include": [
+      "_id",
+      "caption",
+      "url",
+      "height",
+      "width",
+      "dateCaptured",
+      "hasPerson",
+      "accessory",
+      "animal",
+      "appliance",
+      "electronic",
+      "food",
+      "furniture",
+      "indoor",
+      "kitchen",
+      "outdoor",
+      "sports",
+      "vehicle"
+    ]
+  },
   "fields": [
     {
       "type": "vector",

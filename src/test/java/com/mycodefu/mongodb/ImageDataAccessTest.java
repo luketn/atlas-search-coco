@@ -134,6 +134,36 @@ public class ImageDataAccessTest extends AtlasDataTest {
     }
 
     @Test
+    public void search_include_license_fetches_license_fields_from_mongod() {
+        ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+        ImageSearchResult searchResult = imageDataAccess.search(
+                "statue",
+                EnumSet.of(SearchType.Text),
+                0,
+                null,
+                List.of("bear"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true
+        );
+
+        assertNotNull(searchResult);
+        assertEquals(1, searchResult.docs().size());
+        Image exampleImage = searchResult.docs().getFirst();
+        assertEquals(79047, exampleImage._id());
+        assertEquals("Attribution-NonCommercial-ShareAlike License", exampleImage.licenseName());
+        assertEquals("http://creativecommons.org/licenses/by-nc-sa/2.0/", exampleImage.licenseUrl());
+    }
+
+    @Test
     public void search_cat_pages() {
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
         ImageSearchResult searchResult = imageDataAccess.search(
@@ -306,6 +336,39 @@ public class ImageDataAccessTest extends AtlasDataTest {
             assertNull(searchResult.docs().getFirst().licenseName());
             assertNull(searchResult.docs().getFirst().licenseUrl());
             assertTrue(searchResult.meta().getFirst().count().total() >= 1);
+        } finally {
+            LMStudioEmbedding.setEmbeddingProviderForTests(null);
+        }
+    }
+
+    @Test
+    public void vector_search_include_license_fetches_license_fields_from_mongod() {
+        LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(1.0, 0.2, 0.0, 0.0), "test-query-model"));
+        try {
+            ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+            ImageSearchResult searchResult = imageDataAccess.search(
+                    "icy sculpture on a footpath",
+                    EnumSet.of(SearchType.Vector),
+                    0,
+                    null,
+                    List.of("bear"),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    List.of("bench"),
+                    null,
+                    null,
+                    null,
+                    true
+            );
+
+            assertNotNull(searchResult);
+            assertFalse(searchResult.docs().isEmpty());
+            assertEquals("Attribution-NonCommercial-ShareAlike License", searchResult.docs().getFirst().licenseName());
+            assertEquals("http://creativecommons.org/licenses/by-nc-sa/2.0/", searchResult.docs().getFirst().licenseUrl());
         } finally {
             LMStudioEmbedding.setEmbeddingProviderForTests(null);
         }

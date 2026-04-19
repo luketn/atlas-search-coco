@@ -5,6 +5,7 @@ import { Counter, Rate, Trend } from 'k6/metrics';
 
 const baseUrl = (__ENV.BASE_URL || 'http://localhost:8222').replace(/\/$/, '');
 const requestTimeout = __ENV.REQUEST_TIMEOUT || '10s';
+const includeLicense = (__ENV.INCLUDE_LICENSE || 'false').toLowerCase() === 'true';
 const searchFacetNames = [
   'animal',
   'appliance',
@@ -69,6 +70,7 @@ export default function () {
     tags: {
       endpoint: 'image_search',
       filtered: hasFacetFilters(sample) ? 'true' : 'false',
+      include_license: String(includeLicense),
     },
     timeout: requestTimeout,
   });
@@ -113,6 +115,7 @@ function toQueryString(sample) {
   append(parts, 'text', sample.text);
   append(parts, 'page', sample.page);
   append(parts, 'hasPerson', sample.hasPerson);
+  append(parts, 'includeLicense', includeLicense);
 
   for (const facetName of searchFacetNames) {
     const values = sample[facetName];

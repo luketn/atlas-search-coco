@@ -73,6 +73,7 @@ public class Main {
                             ? Integer.parseInt(firstParam(params, "page"))
                             : 0;
                     Double vectorCutoff = doubleParam(params, "vectorCutoff");
+                    boolean includeLicense = Boolean.parseBoolean(firstParam(params, "includeLicense"));
 
                     try (ImageDataAccess imageDataAccess = ImageDataAccess.getInstance()) {
                         ImageSearchResult result = imageDataAccess.search(
@@ -90,7 +91,8 @@ public class Main {
                                 listParam(params, "outdoor"),
                                 listParam(params, "sports"),
                                 listParam(params, "vehicle"),
-                                vectorCutoff
+                                vectorCutoff,
+                                includeLicense
                         );
                         return writeSearchResult(result, javaStartedAtNanos);
                     }
