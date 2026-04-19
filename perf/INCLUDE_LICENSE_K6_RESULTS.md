@@ -2,10 +2,15 @@
 
 This benchmark compares the `/image/search` endpoint with and without the `includeLicense` query parameter.
 
+In the current implementation:
+
+- `includeLicense=false` keeps `returnStoredSource=true`, so results come from `mongot` stored fields.
+- `includeLicense=true` disables `returnStoredSource` and projects `licenseName` / `licenseUrl`, so `mongot` performs the implicit document lookup before returning results.
+
 ## Test setup
 
 - App build: branch `codex/vector-search`
-- Dataset: local COCO load via `com.mycodefu.Main --loadData`
+- Dataset: existing local COCO dataset already loaded in MongoDB
 - Search mode exercised by `k6.js`: text search requests from `k6-data.jsonl`
 - K6 profile: `20` VUs for `10s`
 - Runs:
@@ -26,26 +31,26 @@ K6_WEB_DASHBOARD=false K6_DURATION=10s K6_VUS=20 INCLUDE_LICENSE=true \
 
 | Metric | `includeLicense=false` | `includeLicense=true` | Difference |
 | --- | ---: | ---: | ---: |
-| Average HTTP duration | 13.687 ms | 14.361 ms | +0.674 ms (+4.92%) |
-| P95 HTTP duration | 18.842 ms | 19.521 ms | +0.679 ms (+3.61%) |
-| Request rate | 1441.58 req/s | 1375.70 req/s | -65.89 req/s (-4.57%) |
-| Iterations completed | 14,435 | 13,772 | -663 (-4.59%) |
-| Average docs returned | 8.329 | 8.282 | -0.047 (-0.56%) |
-| Data received | 75.43 MiB | 85.73 MiB | +10.30 MiB (+13.66%) |
+| Average HTTP duration | 15.262 ms | 15.168 ms | -0.094 ms (-0.61%) |
+| P95 HTTP duration | 21.057 ms | 21.487 ms | +0.430 ms (+2.04%) |
+| Request rate | 1292.29 req/s | 1301.35 req/s | +9.05 req/s (+0.70%) |
+| Iterations completed | 12,949 | 13,034 | +85 (+0.66%) |
+| Average docs returned | 8.311 | 8.305 | -0.006 (-0.08%) |
+| Data received | 67.48 MiB | 81.19 MiB | +13.71 MiB (+20.32%) |
 | HTTP failure rate | 0.00% | 0.00% | no change |
 
 ## Interpretation
 
-The default stored-source path is faster because the search results are served directly from `mongot` without hydrating license fields from `mongod`.
+The main effect of `includeLicense=true` in this run was payload size rather than a clear latency or throughput regression.
 
-Turning on `includeLicense=true` adds a measurable but modest penalty:
+Observed impact:
 
-- around `4.9%` slower average latency
-- around `3.6%` slower P95 latency
-- around `4.6%` lower throughput
-- around `13.7%` more response payload received by the client
+- average latency was effectively flat in this sample (`-0.61%`, which is within normal run-to-run noise)
+- p95 latency was slightly higher (`+2.04%`)
+- throughput was effectively flat to slightly higher (`+0.70%`)
+- response payload increased materially (`+20.32%`) because license fields were included
 
-The benchmark stayed error-free in both modes, so the tradeoff here is performance versus richer result documents, not correctness.
+The benchmark stayed error-free in both modes, so the practical tradeoff in this run was richer result documents and larger payloads, with no strong evidence of a meaningful throughput penalty from the implicit lookup path.
 
 ## Files
 
