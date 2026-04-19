@@ -21,7 +21,7 @@ services:
         CONNECTION_STRING: "mongodb://mongodbatlas/?directConnection=true"
         LM_STUDIO_BASE_URL: "${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234}"
         JAVA_APP_ARGS: "${JAVA_APP_ARGS:---loadData}"
-    command: sh -lc 'mvn package --quiet exec:java -Dexec.args="$$JAVA_APP_ARGS" -DskipTests'
+    command: sh -lc 'mvn package exec:java -Dexec.args="$$JAVA_APP_ARGS" -DskipTests'
 
 volumes:
   code:
