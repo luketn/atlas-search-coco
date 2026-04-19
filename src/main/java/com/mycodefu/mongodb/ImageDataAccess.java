@@ -1,11 +1,11 @@
 package com.mycodefu.mongodb;
 
+import com.mongodb.MongoCommandException;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.MongoCommandException;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Facet;
 import com.mongodb.client.model.search.SearchCollector;
@@ -17,7 +17,6 @@ import com.mycodefu.lmstudio.LMStudioEmbedding;
 import com.mycodefu.model.Image;
 import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.model.QueryStats;
-import com.mycodefu.model.SearchType;
 import com.mycodefu.mongodb.atlas.MongoConnection;
 import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
 import org.bson.Document;
@@ -28,16 +27,13 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 import static com.mongodb.client.model.Filters.eq;
-import static com.mongodb.client.model.Filters.in;
 import static com.mongodb.client.model.search.SearchFacet.stringFacet;
 import static com.mongodb.client.model.search.SearchPath.fieldPath;
 import static com.mycodefu.mongodb.atlas.MongoConnection.database_name;
@@ -50,18 +46,6 @@ public class ImageDataAccess implements AutoCloseable {
     private static final int HYBRID_RANK_OFFSET = 60;
     private static final int MIN_VECTOR_CANDIDATES = 100;
     private static final int MAX_VECTOR_CANDIDATES = 10_000;
-    private static final List<String> FACET_FIELDS = List.of(
-            "animal",
-            "appliance",
-            "electronic",
-            "food",
-            "furniture",
-            "indoor",
-            "kitchen",
-            "outdoor",
-            "sports",
-            "vehicle"
-    );
     private static final List<String> IMAGE_FIELDS = List.of(
             "_id",
             "caption",
@@ -82,15 +66,18 @@ public class ImageDataAccess implements AutoCloseable {
             "sports",
             "vehicle"
     );
+    private static final List<String> LICENSE_FIELDS = List.of("licenseName", "licenseUrl");
 
     public static final String collection_name = "image";
 
-    private final MongoClient mongoClient;
     private final MongoCollection<Image> imageCollection;
     private final MongoCollection<Document> imageDocumentCollection;
+    private final SearchStrategy browseSearchStrategy = new BrowseSearchStrategy();
+    private final SearchStrategy textSearchStrategy = new TextSearchStrategy();
+    private final SearchStrategy vectorSearchStrategy = new VectorSearchStrategy();
+    private final SearchStrategy hybridSearchStrategy = new HybridSearchStrategy();
 
     public ImageDataAccess(MongoClient mongoClient, String databaseName, String collectionName) {
-        this.mongoClient = mongoClient;
         MongoDatabase database = mongoClient.getDatabase(databaseName);
         this.imageCollection = database.getCollection(collectionName, Image.class);
         this.imageDocumentCollection = database.getCollection(collectionName);
@@ -136,182 +123,26 @@ public class ImageDataAccess implements AutoCloseable {
         }
     }
 
-    public ImageSearchResult search(
-            String text,
-            Integer page,
-            Boolean hasPerson,
-            List<String> animal,
-            List<String> appliance,
-            List<String> electronic,
-            List<String> food,
-            List<String> furniture,
-            List<String> indoor,
-            List<String> kitchen,
-            List<String> outdoor,
-            List<String> sports,
-            List<String> vehicle
-    ) {
-        return search(
-                text,
-                EnumSet.of(SearchType.Text),
-                page,
-                hasPerson,
-                animal,
-                appliance,
-                electronic,
-                food,
-                furniture,
-                indoor,
-                kitchen,
-                outdoor,
-                sports,
-                vehicle,
-                DEFAULT_VECTOR_SCORE_CUTOFF,
-                false
-        );
-    }
-
-    public ImageSearchResult search(
-            String text,
-            Set<SearchType> searchTypes,
-            Integer page,
-            Boolean hasPerson,
-            List<String> animal,
-            List<String> appliance,
-            List<String> electronic,
-            List<String> food,
-            List<String> furniture,
-            List<String> indoor,
-            List<String> kitchen,
-            List<String> outdoor,
-            List<String> sports,
-            List<String> vehicle
-    ) {
-        return search(
-                text,
-                searchTypes,
-                page,
-                hasPerson,
-                animal,
-                appliance,
-                electronic,
-                food,
-                furniture,
-                indoor,
-                kitchen,
-                outdoor,
-                sports,
-                vehicle,
-                DEFAULT_VECTOR_SCORE_CUTOFF,
-                false
-        );
-    }
-
-    public ImageSearchResult search(
-            String text,
-            Set<SearchType> searchTypes,
-            Integer page,
-            Boolean hasPerson,
-            List<String> animal,
-            List<String> appliance,
-            List<String> electronic,
-            List<String> food,
-            List<String> furniture,
-            List<String> indoor,
-            List<String> kitchen,
-            List<String> outdoor,
-            List<String> sports,
-            List<String> vehicle,
-            Double vectorScoreCutoff
-    ) {
-        return search(
-                text,
-                searchTypes,
-                page,
-                hasPerson,
-                animal,
-                appliance,
-                electronic,
-                food,
-                furniture,
-                indoor,
-                kitchen,
-                outdoor,
-                sports,
-                vehicle,
-                vectorScoreCutoff,
-                false
-        );
-    }
-
-    public ImageSearchResult search(
-            String text,
-            Set<SearchType> searchTypes,
-            Integer page,
-            Boolean hasPerson,
-            List<String> animal,
-            List<String> appliance,
-            List<String> electronic,
-            List<String> food,
-            List<String> furniture,
-            List<String> indoor,
-            List<String> kitchen,
-            List<String> outdoor,
-            List<String> sports,
-            List<String> vehicle,
-            Double vectorScoreCutoff,
-            boolean includeLicense
-    ) {
-        EnumSet<SearchType> requestedSearchTypes = searchTypes == null || searchTypes.isEmpty()
-                ? EnumSet.of(SearchType.Text)
-                : EnumSet.copyOf(searchTypes);
-        boolean hasMeaningfulText = text != null && !text.isBlank();
-        double effectiveVectorScoreCutoff = vectorScoreCutoff == null
-                ? DEFAULT_VECTOR_SCORE_CUTOFF
-                : Math.max(0.0, Math.min(1.0, vectorScoreCutoff));
-        SearchFilters filters = new SearchFilters(
-                hasPerson,
-                normaliseValues(animal),
-                normaliseValues(appliance),
-                normaliseValues(electronic),
-                normaliseValues(food),
-                normaliseValues(furniture),
-                normaliseValues(indoor),
-                normaliseValues(kitchen),
-                normaliseValues(outdoor),
-                normaliseValues(sports),
-                normaliseValues(vehicle)
-        );
-
-        if (!hasMeaningfulText) {
-            return maybeIncludeLicense(browseSearch(page, filters), includeLicense);
+    public ImageSearchResult search(SearchRequest request) {
+        if (!request.hasMeaningfulText()) {
+            return browseSearchStrategy.search(this, request);
         }
 
-        if (requestedSearchTypes.equals(EnumSet.of(SearchType.Text))) {
-            return maybeIncludeLicense(textSearch(text, page, filters), includeLicense);
+        if (request.textOnly()) {
+            return textSearchStrategy.search(this, request);
         }
 
         if (!hasVectorSearchIndex()) {
             throw new IllegalStateException("Vector search index is not available.");
         }
 
-        return maybeIncludeLicense(
-                vectorOrHybridSearch(text, requestedSearchTypes, page, filters, effectiveVectorScoreCutoff),
-                includeLicense
-        );
+        return request.vectorOnly()
+                ? vectorSearchStrategy.search(this, request)
+                : hybridSearchStrategy.search(this, request);
     }
 
-    private ImageSearchResult textSearch(String text, Integer page, SearchFilters filters) {
-        return searchWithFacets(buildTextSearchOperator(text, filters), page);
-    }
-
-    private ImageSearchResult browseSearch(Integer page, SearchFilters filters) {
-        return searchWithFacets(buildBrowseSearchOperator(filters), page);
-    }
-
-    private ImageSearchResult searchWithFacets(SearchOperator operator, Integer page) {
-        List<SearchOperator> clauses = new ArrayList<>();
-        int skip = page == null ? 0 : page * PAGE_SIZE;
+    ImageSearchResult executeFacetSearch(SearchOperator operator, SearchRequest request) {
+        int skip = request.page() * PAGE_SIZE;
         List<Bson> aggregateStages = List.of(
                 Aggregates.search(
                         SearchCollector.facet(
@@ -329,16 +160,13 @@ public class ImageDataAccess implements AutoCloseable {
                                         stringFacet("vehicle", fieldPath("vehicle")).numBuckets(10)
                                 )
                         ),
-                        SearchOptions.searchOptions()
+                        buildSearchOptions(request)
                                 .count(SearchCount.total())
-                                .returnStoredSource(true)
                 ),
                 Aggregates.skip(skip),
                 Aggregates.limit(PAGE_SIZE),
                 Aggregates.facet(
-                        new Facet("docs", List.of(
-                                new Document("$project", buildImageProjectionFields())
-                        )),
+                        new Facet("docs", List.of(new Document("$project", buildImageProjectionFields(request.includeLicense(), false)))),
                         new Facet("meta", List.of(
                                 Aggregates.replaceWith("$$SEARCH_META"),
                                 Aggregates.limit(1)
@@ -349,36 +177,134 @@ public class ImageDataAccess implements AutoCloseable {
         return aggregateSearchResult(imageCollection.aggregate(aggregateStages, ImageSearchResult.class), aggregateStages);
     }
 
-    private ImageSearchResult vectorOrHybridSearch(
-            String text,
-            Set<SearchType> searchTypes,
-            Integer page,
-            SearchFilters filters,
-            double vectorScoreCutoff
-    ) {
-        int skip = page == null ? 0 : page * PAGE_SIZE;
-        List<Double> queryVector = LMStudioEmbedding.embed(text).embedding();
-        long vectorLimit = Math.max(1L, imageDocumentCollection.countDocuments(filters.toVectorFilterDocument()));
-        int desiredVectorResultLimit = (int) Math.min(Integer.MAX_VALUE, vectorLimit);
+    ImageSearchResult executeVectorSearch(SearchRequest request) {
+        VectorQuery vectorQuery = createVectorQuery(request);
+        List<Bson> aggregateStages = new ArrayList<>(buildVectorPipeline(vectorQuery, request));
+        aggregateStages.add(new Document("$project", buildImageProjectionFields(request.includeLicense(), false)));
+        return aggregateRankedSearchResult(aggregateStages, request.page() * PAGE_SIZE);
+    }
+
+    ImageSearchResult executeHybridSearch(SearchRequest request) {
+        int skip = request.page() * PAGE_SIZE;
+        VectorQuery vectorQuery = createVectorQuery(request);
+        int textResultLimit = (int) Math.min(Integer.MAX_VALUE - 1L, Math.max(1L, vectorQuery.filteredDocumentCount()));
+
+        List<Image> textResults = loadRankedImages(buildTextRankingPipeline(request, textResultLimit));
+        List<Image> vectorResults = loadRankedImages(buildVectorPipeline(vectorQuery, request));
+        List<Image> rankedImages = fuseRankedImages(textResults, vectorResults);
+        return buildRankedSearchResult(rankedImages, skip, null);
+    }
+
+    SearchOperator buildTextSearchOperator(SearchRequest request) {
+        return buildCompoundOperator(
+                List.of(SearchOperator.text(fieldPath("caption"), request.text())),
+                request.filters().toSearchClauses()
+        );
+    }
+
+    SearchOperator buildBrowseSearchOperator(SearchRequest request) {
+        return buildCompoundOperator(
+                List.of(SearchOperator.exists(fieldPath("caption"))),
+                request.filters().toSearchClauses()
+        );
+    }
+
+    private SearchOperator buildCompoundOperator(List<SearchOperator> mustClauses, List<SearchOperator> filterClauses) {
+        SearchOperator compound = SearchOperator.compound().must(mustClauses);
+        if (!filterClauses.isEmpty()) {
+            compound = SearchOperator.compound().must(mustClauses).filter(filterClauses);
+        }
+        return compound;
+    }
+
+    private SearchOptions buildSearchOptions(SearchRequest request) {
+        return SearchOptions.searchOptions()
+                .returnStoredSource(request.returnStoredSource());
+    }
+
+    private VectorQuery createVectorQuery(SearchRequest request) {
+        List<Double> queryVector = LMStudioEmbedding.embed(request.text()).embedding();
+        long filteredDocumentCount = Math.max(1L, imageDocumentCollection.countDocuments(request.filters().toVectorFilterDocument()));
+        int desiredVectorResultLimit = (int) Math.min(Integer.MAX_VALUE, filteredDocumentCount);
         int numCandidates = Math.min(MAX_VECTOR_CANDIDATES, Math.max(desiredVectorResultLimit, MIN_VECTOR_CANDIDATES));
         int vectorResultLimit = Math.min(desiredVectorResultLimit, numCandidates);
+        return new VectorQuery(queryVector, filteredDocumentCount, vectorResultLimit, numCandidates);
+    }
 
-        List<Bson> aggregateStages;
-        if (searchTypes.equals(EnumSet.of(SearchType.Vector))) {
-            aggregateStages = new ArrayList<>(buildVectorPipeline(queryVector, filters, vectorResultLimit, numCandidates, vectorScoreCutoff));
-            aggregateStages.add(new Document("$project", buildImageProjectionFields()));
-            return aggregateRankedSearchResult(aggregateStages, skip);
+    private List<Bson> buildTextRankingPipeline(SearchRequest request, int limit) {
+        return List.of(
+                Aggregates.search(
+                        buildTextSearchOperator(request),
+                        buildSearchOptions(request).index(MongoConnection.index_name)
+                ),
+                Aggregates.limit(limit),
+                new Document("$project", buildImageProjectionFields(request.includeLicense(), false))
+        );
+    }
+
+    private List<Bson> buildVectorPipeline(VectorQuery vectorQuery, SearchRequest request) {
+        ArrayList<Bson> pipeline = new ArrayList<>();
+        pipeline.add(buildVectorPipelineStage(vectorQuery, request));
+        pipeline.add(buildScoreProjection("vectorSearchScore", request.includeLicense()));
+        pipeline.add(buildScoreCutoffMatchStage(request.vectorScoreCutoff()));
+        pipeline.add(buildRankStage());
+        pipeline.add(buildHybridScoreStage());
+        pipeline.add(new Document("$project", buildImageProjectionFields(request.includeLicense(), true)));
+        return pipeline;
+    }
+
+    private Document buildVectorPipelineStage(VectorQuery vectorQuery, SearchRequest request) {
+        Document vectorStage = new Document("index", MongoConnection.vector_index_name)
+                .append("path", "captionEmbedding")
+                .append("queryVector", vectorQuery.queryVector())
+                .append("limit", vectorQuery.vectorResultLimit())
+                .append("numCandidates", vectorQuery.numCandidates())
+                .append("returnStoredSource", request.returnStoredSource());
+        Document filterDocument = request.filters().toVectorFilterDocument();
+        if (!filterDocument.isEmpty()) {
+            vectorStage.append("filter", filterDocument);
         }
+        return new Document("$vectorSearch", vectorStage);
+    }
 
-        return hybridSearch(text, queryVector, skip, filters, vectorLimit, vectorResultLimit, numCandidates, vectorScoreCutoff);
+    private Document buildScoreProjection(String scoreMetaField, boolean includeLicense) {
+        Document projection = buildImageProjectionFields(includeLicense, false);
+        projection.append("_rawScore", new Document("$meta", scoreMetaField));
+        return new Document("$project", projection);
+    }
+
+    private Document buildScoreCutoffMatchStage(double vectorScoreCutoff) {
+        return new Document("$match", new Document("_rawScore", new Document("$gte", vectorScoreCutoff)));
+    }
+
+    private Document buildRankStage() {
+        return new Document("$setWindowFields", new Document("sortBy", new Document("_rawScore", -1))
+                .append("output", new Document("_rank", new Document("$documentNumber", new Document()))));
+    }
+
+    private Document buildHybridScoreStage() {
+        return new Document("$addFields", new Document("hybridScore",
+                new Document("$divide", List.of(1.0, new Document("$add", List.of(HYBRID_RANK_OFFSET, "$_rank"))))));
+    }
+
+    Document buildImageProjectionFields(boolean includeLicense, boolean includeHybridScore) {
+        Document projection = new Document();
+        for (String field : IMAGE_FIELDS) {
+            projection.append(field, 1);
+        }
+        if (includeLicense) {
+            for (String field : LICENSE_FIELDS) {
+                projection.append(field, 1);
+            }
+        }
+        if (includeHybridScore) {
+            projection.append("hybridScore", 1);
+        }
+        return projection;
     }
 
     private ImageSearchResult aggregateSearchResult(AggregateIterable<ImageSearchResult> aggregateCursor, List<? extends Bson> aggregateStages) {
-        if (log.isTraceEnabled()) {
-            for (Bson aggregateStage : aggregateStages) {
-                System.out.println(aggregateStage.toBsonDocument().toJson(JsonWriterSettings.builder().indent(true).build()));
-            }
-        }
+        tracePipeline(aggregateStages);
 
         String traceId = null;
         if (MongoConnectionTracing.isTracingEnabled()) {
@@ -399,7 +325,6 @@ public class ImageDataAccess implements AutoCloseable {
         }
 
         ImageSearchResult imageSearchResult = aggregateResult == null ? null : aggregateResult.withStats(stats);
-
         if (log.isDebugEnabled()) {
             log.debug(JsonUtil.writeToString(imageSearchResult));
         }
@@ -411,11 +336,7 @@ public class ImageDataAccess implements AutoCloseable {
     }
 
     private List<Image> loadRankedImages(List<? extends Bson> aggregateStages) {
-        if (log.isTraceEnabled()) {
-            for (Bson aggregateStage : aggregateStages) {
-                System.out.println(aggregateStage.toBsonDocument().toJson(JsonWriterSettings.builder().indent(true).build()));
-            }
-        }
+        tracePipeline(aggregateStages);
 
         AggregateIterable<Image> aggregateCursor = imageDocumentCollection.aggregate(aggregateStages, Image.class);
         String traceId = null;
@@ -440,21 +361,12 @@ public class ImageDataAccess implements AutoCloseable {
         return rankedImages;
     }
 
-    private ImageSearchResult hybridSearch(
-            String text,
-            List<Double> queryVector,
-            int skip,
-            SearchFilters filters,
-            long filteredDocumentCount,
-            int vectorResultLimit,
-            int numCandidates,
-            double vectorScoreCutoff
-    ) {
-        int textResultLimit = (int) Math.min(Integer.MAX_VALUE - 1L, Math.max(1L, filteredDocumentCount));
-        List<Image> textResults = loadRankedImages(buildTextRankingPipeline(text, filters, textResultLimit));
-        List<Image> vectorResults = loadRankedImages(buildVectorPipeline(queryVector, filters, vectorResultLimit, numCandidates, vectorScoreCutoff));
-        List<Image> rankedImages = fuseRankedImages(textResults, vectorResults);
-        return buildRankedSearchResult(rankedImages, skip, null);
+    private void tracePipeline(List<? extends Bson> aggregateStages) {
+        if (log.isTraceEnabled()) {
+            for (Bson aggregateStage : aggregateStages) {
+                System.out.println(aggregateStage.toBsonDocument().toJson(JsonWriterSettings.builder().indent(true).build()));
+            }
+        }
     }
 
     private ImageSearchResult buildRankedSearchResult(List<Image> rankedImages, int skip, QueryStats stats) {
@@ -490,102 +402,6 @@ public class ImageDataAccess implements AutoCloseable {
             imageById.putIfAbsent(image._id(), image);
             scoreById.merge(image._id(), 1.0 / (HYBRID_RANK_OFFSET + i + 1), Double::sum);
         }
-    }
-
-    private List<Bson> buildVectorPipeline(List<Double> queryVector, SearchFilters filters, int limit, int numCandidates, double vectorScoreCutoff) {
-        ArrayList<Bson> pipeline = new ArrayList<>();
-        pipeline.add(buildVectorPipelineStage(queryVector, filters, limit, numCandidates));
-        pipeline.add(buildScoreProjection("vectorSearchScore"));
-        pipeline.add(buildScoreCutoffMatchStage(vectorScoreCutoff));
-        pipeline.add(buildRankStage());
-        pipeline.add(buildHybridScoreStage());
-        pipeline.add(buildImageProjection());
-        return pipeline;
-    }
-
-    private List<Bson> buildTextRankingPipeline(String text, SearchFilters filters, int limit) {
-        return List.of(
-                Aggregates.search(
-                        buildTextSearchOperator(text, filters),
-                        SearchOptions.searchOptions()
-                                .index(MongoConnection.index_name)
-                                .returnStoredSource(true)
-                ),
-                Aggregates.limit(limit),
-                new Document("$project", buildImageProjectionFields())
-        );
-    }
-
-    private SearchOperator buildTextSearchOperator(String text, SearchFilters filters) {
-        ArrayList<SearchOperator> mustClauses = new ArrayList<>();
-        mustClauses.add(SearchOperator.text(fieldPath("caption"), text));
-
-        return buildCompoundOperator(mustClauses, filters.toSearchClauses());
-    }
-
-    private SearchOperator buildBrowseSearchOperator(SearchFilters filters) {
-        ArrayList<SearchOperator> mustClauses = new ArrayList<>();
-        mustClauses.add(SearchOperator.exists(fieldPath("caption")));
-        return buildCompoundOperator(mustClauses, filters.toSearchClauses());
-    }
-
-    private SearchOperator buildCompoundOperator(List<SearchOperator> mustClauses, List<SearchOperator> filterClauses) {
-        SearchOperator compound = SearchOperator.compound()
-                .must(mustClauses);
-        if (!filterClauses.isEmpty()) {
-            compound = SearchOperator.compound()
-                    .must(mustClauses)
-                    .filter(filterClauses);
-        }
-        return compound;
-    }
-
-    private Document buildVectorPipelineStage(List<Double> queryVector, SearchFilters filters, int limit, int numCandidates) {
-        Document vectorStage = new Document("index", MongoConnection.vector_index_name)
-                .append("path", "captionEmbedding")
-                .append("queryVector", queryVector)
-                .append("limit", limit)
-                .append("numCandidates", numCandidates)
-                .append("returnStoredSource", true);
-        Document filterDocument = filters.toVectorFilterDocument();
-        if (!filterDocument.isEmpty()) {
-            vectorStage.append("filter", filterDocument);
-        }
-        return new Document("$vectorSearch", vectorStage);
-    }
-
-    private Document buildScoreCutoffMatchStage(double vectorScoreCutoff) {
-        return new Document("$match", new Document("_rawScore", new Document("$gte", vectorScoreCutoff)));
-    }
-
-    private Document buildScoreProjection(String scoreMetaField) {
-        Document projection = buildImageProjectionFields();
-        projection.append("_rawScore", new Document("$meta", scoreMetaField));
-        return new Document("$project", projection);
-    }
-
-    private Document buildRankStage() {
-        return new Document("$setWindowFields", new Document("sortBy", new Document("_rawScore", -1))
-                .append("output", new Document("_rank", new Document("$documentNumber", new Document()))));
-    }
-
-    private Document buildHybridScoreStage() {
-        return new Document("$addFields", new Document("hybridScore",
-                new Document("$divide", List.of(1.0, new Document("$add", List.of(HYBRID_RANK_OFFSET, "$_rank"))))));
-    }
-
-    private Document buildImageProjection() {
-        Document projection = buildImageProjectionFields();
-        projection.append("hybridScore", 1);
-        return new Document("$project", projection);
-    }
-
-    private Document buildImageProjectionFields() {
-        Document projection = new Document();
-        for (String field : IMAGE_FIELDS) {
-            projection.append(field, 1);
-        }
-        return projection;
     }
 
     private ImageSearchResult.ImageMeta buildMeta(List<Image> rankedImages) {
@@ -644,140 +460,20 @@ public class ImageDataAccess implements AutoCloseable {
         };
     }
 
-    private List<String> normaliseValues(List<String> values) {
-        return values == null ? null : values.stream().filter(Objects::nonNull).toList();
-    }
-
-    private ImageSearchResult maybeIncludeLicense(ImageSearchResult searchResult, boolean includeLicense) {
-        if (!includeLicense || searchResult == null || searchResult.docs() == null || searchResult.docs().isEmpty()) {
-            return searchResult;
-        }
-
-        Map<Integer, LicenseFields> licensesById = loadLicenses(searchResult.docs());
-        List<Image> docsWithLicenses = searchResult.docs().stream()
-                .map(image -> withLicense(image, licensesById.get(image._id())))
-                .toList();
-        return new ImageSearchResult(docsWithLicenses, searchResult.meta(), searchResult.stats());
-    }
-
-    private Map<Integer, LicenseFields> loadLicenses(List<Image> images) {
-        List<Integer> ids = images.stream().map(Image::_id).toList();
-        HashMap<Integer, LicenseFields> licensesById = new HashMap<>();
-        for (Document document : imageDocumentCollection.find(in("_id", ids))
-                .projection(new Document("_id", 1).append("licenseName", 1).append("licenseUrl", 1))) {
-            licensesById.put(
-                    document.getInteger("_id"),
-                    new LicenseFields(document.getString("licenseName"), document.getString("licenseUrl"))
-            );
-        }
-        return licensesById;
-    }
-
-    private Image withLicense(Image image, LicenseFields licenseFields) {
-        if (licenseFields == null) {
-            return image;
-        }
-        return new Image(
-                image._id(),
-                image.caption(),
-                image.captionEmbedding(),
-                image.captionEmbeddingModel(),
-                image.url(),
-                image.height(),
-                image.width(),
-                image.dateCaptured(),
-                licenseFields.licenseName(),
-                licenseFields.licenseUrl(),
-                image.hasPerson(),
-                image.accessory(),
-                image.animal(),
-                image.appliance(),
-                image.electronic(),
-                image.food(),
-                image.furniture(),
-                image.indoor(),
-                image.kitchen(),
-                image.outdoor(),
-                image.sports(),
-                image.vehicle()
-        );
-    }
-
-    private static SearchOperator equals(String fieldName, Object value) {
+    static SearchOperator equalsClause(String fieldName, Object value) {
         return SearchOperator.of(new Document("equals", new Document("path", fieldName).append("value", value)));
     }
 
+    @Override
     public void close() {
         // MongoConnection manages the shared client lifecycle for the app.
     }
 
-    private record SearchFilters(
-            Boolean hasPerson,
-            List<String> animal,
-            List<String> appliance,
-            List<String> electronic,
-            List<String> food,
-            List<String> furniture,
-            List<String> indoor,
-            List<String> kitchen,
-            List<String> outdoor,
-            List<String> sports,
-            List<String> vehicle
+    private record VectorQuery(
+            List<Double> queryVector,
+            long filteredDocumentCount,
+            int vectorResultLimit,
+            int numCandidates
     ) {
-        private Map<String, List<String>> categories() {
-            LinkedHashMap<String, List<String>> categories = new LinkedHashMap<>();
-            categories.put("animal", animal);
-            categories.put("appliance", appliance);
-            categories.put("electronic", electronic);
-            categories.put("food", food);
-            categories.put("furniture", furniture);
-            categories.put("indoor", indoor);
-            categories.put("kitchen", kitchen);
-            categories.put("outdoor", outdoor);
-            categories.put("sports", sports);
-            categories.put("vehicle", vehicle);
-            return categories;
-        }
-
-        private List<SearchOperator> toSearchClauses() {
-            ArrayList<SearchOperator> clauses = new ArrayList<>();
-            if (hasPerson != null) {
-                clauses.add(ImageDataAccess.equals("hasPerson", hasPerson));
-            }
-            for (Map.Entry<String, List<String>> entry : categories().entrySet()) {
-                if (entry.getValue() == null) {
-                    continue;
-                }
-                for (String value : entry.getValue()) {
-                    clauses.add(ImageDataAccess.equals(entry.getKey(), value));
-                }
-            }
-            return clauses;
-        }
-
-        private Document toVectorFilterDocument() {
-            ArrayList<Document> clauses = new ArrayList<>();
-            if (hasPerson != null) {
-                clauses.add(new Document("hasPerson", hasPerson));
-            }
-            for (Map.Entry<String, List<String>> entry : categories().entrySet()) {
-                if (entry.getValue() == null) {
-                    continue;
-                }
-                for (String value : entry.getValue()) {
-                    clauses.add(new Document(entry.getKey(), value));
-                }
-            }
-            if (clauses.isEmpty()) {
-                return new Document();
-            }
-            if (clauses.size() == 1) {
-                return clauses.getFirst();
-            }
-            return new Document("$and", clauses);
-        }
-    }
-
-    private record LicenseFields(String licenseName, String licenseUrl) {
     }
 }

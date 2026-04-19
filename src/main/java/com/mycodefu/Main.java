@@ -9,6 +9,8 @@ import com.mycodefu.model.SearchCapabilities;
 import com.mycodefu.model.SearchType;
 import com.mycodefu.mongodb.CategoryDataAccess;
 import com.mycodefu.mongodb.ImageDataAccess;
+import com.mycodefu.mongodb.SearchFilters;
+import com.mycodefu.mongodb.SearchRequest;
 import com.mycodefu.service.SimpleServer;
 
 import java.io.IOException;
@@ -76,24 +78,27 @@ public class Main {
                     boolean includeLicense = Boolean.parseBoolean(firstParam(params, "includeLicense"));
 
                     try (ImageDataAccess imageDataAccess = ImageDataAccess.getInstance()) {
-                        ImageSearchResult result = imageDataAccess.search(
+                        SearchRequest request = SearchRequest.of(
                                 text,
                                 searchTypes,
                                 page,
-                                booleanParam(params, "hasPerson"),
-                                listParam(params, "animal"),
-                                listParam(params, "appliance"),
-                                listParam(params, "electronic"),
-                                listParam(params, "food"),
-                                listParam(params, "furniture"),
-                                listParam(params, "indoor"),
-                                listParam(params, "kitchen"),
-                                listParam(params, "outdoor"),
-                                listParam(params, "sports"),
-                                listParam(params, "vehicle"),
+                                new SearchFilters(
+                                        booleanParam(params, "hasPerson"),
+                                        listParam(params, "animal"),
+                                        listParam(params, "appliance"),
+                                        listParam(params, "electronic"),
+                                        listParam(params, "food"),
+                                        listParam(params, "furniture"),
+                                        listParam(params, "indoor"),
+                                        listParam(params, "kitchen"),
+                                        listParam(params, "outdoor"),
+                                        listParam(params, "sports"),
+                                        listParam(params, "vehicle")
+                                ),
                                 vectorCutoff,
                                 includeLicense
                         );
+                        ImageSearchResult result = imageDataAccess.search(request);
                         return writeSearchResult(result, javaStartedAtNanos);
                     }
                 })

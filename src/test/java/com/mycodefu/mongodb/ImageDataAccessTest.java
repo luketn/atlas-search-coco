@@ -12,9 +12,9 @@ import org.junit.Test;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
-
 
 public class ImageDataAccessTest extends AtlasDataTest {
 
@@ -48,16 +48,15 @@ public class ImageDataAccessTest extends AtlasDataTest {
         assertNull(exampleImage.kitchen());
         assertNull(exampleImage.sports());
         assertNull(exampleImage.vehicle());
-
     }
 
     @Test
     public void search_bear() {
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-        ImageSearchResult searchResult = imageDataAccess.search("statue", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null);
+        ImageSearchResult searchResult = imageDataAccess.search(request("statue", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null));
         assertNotNull(searchResult);
         assertEquals(1, searchResult.docs().size());
-        Image exampleImage = searchResult.docs().get(0);
+        Image exampleImage = searchResult.docs().getFirst();
         assertEquals(79047, exampleImage._id());
         assertEquals("Snow surrounds a standing bear statue on a sidewalk.", exampleImage.caption());
         assertNull(exampleImage.captionEmbedding());
@@ -87,7 +86,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
     @Test
     public void search_bird() {
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-        ImageSearchResult searchResult = imageDataAccess.search(
+        ImageSearchResult searchResult = imageDataAccess.search(request(
                 "bread basket", 0,
                 true,
                 List.of("bird"),
@@ -96,10 +95,10 @@ public class ImageDataAccessTest extends AtlasDataTest {
                 null,
                 List.of("cup"),
                 null, null, null
-        );
+        ));
         assertNotNull(searchResult);
         assertEquals(1, searchResult.docs().size());
-        Image exampleImage = searchResult.docs().get(0);
+        Image exampleImage = searchResult.docs().getFirst();
         assertEquals(527040, exampleImage._id());
         assertEquals("Three birds sitting on a bread basket near a newspaper.", exampleImage.caption());
         assertNull(exampleImage.captionEmbedding());
@@ -110,20 +109,15 @@ public class ImageDataAccessTest extends AtlasDataTest {
         assertEquals(new Date(1384546777000L), exampleImage.dateCaptured());
         assertNull(exampleImage.licenseName());
         assertNull(exampleImage.licenseUrl());
-
         assertTrue(exampleImage.hasPerson());
-
         assertEquals(1, exampleImage.animal().size());
         assertEquals("bird", exampleImage.animal().getFirst());
-
         assertEquals(2, exampleImage.furniture().size());
         assertEquals("chair", exampleImage.furniture().getFirst());
         assertEquals("dining table", exampleImage.furniture().getLast());
-
         assertEquals(2, exampleImage.kitchen().size());
         assertEquals("cup", exampleImage.kitchen().getFirst());
         assertEquals("bowl", exampleImage.kitchen().getLast());
-
         assertNull(exampleImage.accessory());
         assertNull(exampleImage.appliance());
         assertNull(exampleImage.electronic());
@@ -134,9 +128,9 @@ public class ImageDataAccessTest extends AtlasDataTest {
     }
 
     @Test
-    public void search_include_license_fetches_license_fields_from_mongod() {
+    public void search_include_license_fetches_license_fields_via_single_search_query() {
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-        ImageSearchResult searchResult = imageDataAccess.search(
+        ImageSearchResult searchResult = imageDataAccess.search(request(
                 "statue",
                 EnumSet.of(SearchType.Text),
                 0,
@@ -153,7 +147,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
                 null,
                 null,
                 true
-        );
+        ));
 
         assertNotNull(searchResult);
         assertEquals(1, searchResult.docs().size());
@@ -166,59 +160,16 @@ public class ImageDataAccessTest extends AtlasDataTest {
     @Test
     public void search_cat_pages() {
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-        ImageSearchResult searchResult = imageDataAccess.search(
-                "cat",
-                0,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
+        ImageSearchResult searchResult = imageDataAccess.search(request("cat", 0, null, null, null, null, null, null, null, null, null, null, null));
         assertNotNull(searchResult);
         assertEquals(10, searchResult.docs().size());
-
         assertEquals(13, searchResult.meta().getFirst().count().total());
 
-        ImageSearchResult searchResultPage2 = imageDataAccess.search(
-                "cat",
-                1,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
+        ImageSearchResult searchResultPage2 = imageDataAccess.search(request("cat", 1, null, null, null, null, null, null, null, null, null, null, null));
         assertNotNull(searchResultPage2);
         assertEquals(3, searchResultPage2.docs().size());
 
-        ImageSearchResult searchResultPage3 = imageDataAccess.search(
-                "cat",
-                2,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
+        ImageSearchResult searchResultPage3 = imageDataAccess.search(request("cat", 2, null, null, null, null, null, null, null, null, null, null, null));
         assertNotNull(searchResultPage3);
         assertEquals(0, searchResultPage3.docs().size());
     }
@@ -231,7 +182,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
                 .getCollection(ImageDataAccess.collection_name, Document.class)
                 .countDocuments();
 
-        ImageSearchResult searchResult = imageDataAccess.search(
+        ImageSearchResult searchResult = imageDataAccess.search(request(
                 null,
                 EnumSet.of(SearchType.Text, SearchType.Vector),
                 0,
@@ -246,8 +197,9 @@ public class ImageDataAccessTest extends AtlasDataTest {
                 null,
                 null,
                 null,
-                null
-        );
+                null,
+                false
+        ));
 
         assertNotNull(searchResult);
         assertEquals(10, searchResult.docs().size());
@@ -257,7 +209,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
     @Test
     public void category_only_search_without_text_returns_filtered_documents() {
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-        ImageSearchResult searchResult = imageDataAccess.search(
+        ImageSearchResult searchResult = imageDataAccess.search(request(
                 null,
                 EnumSet.of(SearchType.Text, SearchType.Vector),
                 0,
@@ -272,8 +224,9 @@ public class ImageDataAccessTest extends AtlasDataTest {
                 List.of("bench"),
                 null,
                 null,
-                null
-        );
+                null,
+                false
+        ));
 
         assertNotNull(searchResult);
         assertFalse(searchResult.docs().isEmpty());
@@ -288,7 +241,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
         System.setProperty(MongoConnectionTracing.TRACE_COMMANDS_PROPERTY, "true");
         try {
             ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-            ImageSearchResult searchResult = imageDataAccess.search("statue", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null);
+            ImageSearchResult searchResult = imageDataAccess.search(request("statue", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null));
 
             assertNotNull(searchResult);
             assertNotNull(searchResult.stats());
@@ -311,7 +264,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
         LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(1.0, 0.2, 0.0, 0.0), "test-query-model"));
         try {
             ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-            ImageSearchResult searchResult = imageDataAccess.search(
+            ImageSearchResult searchResult = imageDataAccess.search(request(
                     "icy sculpture on a footpath",
                     EnumSet.of(SearchType.Vector),
                     0,
@@ -325,8 +278,10 @@ public class ImageDataAccessTest extends AtlasDataTest {
                     null,
                     List.of("bench"),
                     null,
-                    null
-            );
+                    null,
+                    null,
+                    false
+            ));
 
             assertNotNull(searchResult);
             assertFalse(searchResult.docs().isEmpty());
@@ -342,11 +297,11 @@ public class ImageDataAccessTest extends AtlasDataTest {
     }
 
     @Test
-    public void vector_search_include_license_fetches_license_fields_from_mongod() {
+    public void vector_search_include_license_fetches_license_fields_via_single_search_query() {
         LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(1.0, 0.2, 0.0, 0.0), "test-query-model"));
         try {
             ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-            ImageSearchResult searchResult = imageDataAccess.search(
+            ImageSearchResult searchResult = imageDataAccess.search(request(
                     "icy sculpture on a footpath",
                     EnumSet.of(SearchType.Vector),
                     0,
@@ -363,7 +318,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
                     null,
                     null,
                     true
-            );
+            ));
 
             assertNotNull(searchResult);
             assertFalse(searchResult.docs().isEmpty());
@@ -379,7 +334,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
         LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(0.7, 0.7, 0.0, 0.0), "test-query-model"));
         try {
             ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-            ImageSearchResult searchResult = imageDataAccess.search(
+            ImageSearchResult searchResult = imageDataAccess.search(request(
                     "bear-like query with weaker similarity",
                     EnumSet.of(SearchType.Vector),
                     0,
@@ -394,8 +349,9 @@ public class ImageDataAccessTest extends AtlasDataTest {
                     List.of("bench"),
                     null,
                     null,
-                    0.95
-            );
+                    0.95,
+                    false
+            ));
 
             assertNotNull(searchResult);
             assertTrue(searchResult.docs().isEmpty());
@@ -410,7 +366,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
         LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(0.3, 0.3, 0.3, 0.3), "test-query-model"));
         try {
             ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-            ImageSearchResult searchResult = imageDataAccess.search(
+            ImageSearchResult searchResult = imageDataAccess.search(request(
                     "cow",
                     EnumSet.of(SearchType.Vector),
                     0,
@@ -425,8 +381,9 @@ public class ImageDataAccessTest extends AtlasDataTest {
                     null,
                     null,
                     null,
-                    0.0
-            );
+                    0.0,
+                    false
+            ));
 
             assertNotNull(searchResult);
             assertNotNull(searchResult.meta());
@@ -441,7 +398,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
         LMStudioEmbedding.setEmbeddingProviderForTests(text -> new LMStudioEmbedding.EmbeddingResult(List.of(0.0, 1.0, 0.15, 0.0), "test-query-model"));
         try {
             ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
-            ImageSearchResult searchResult = imageDataAccess.search(
+            ImageSearchResult searchResult = imageDataAccess.search(request(
                     "newspaper",
                     EnumSet.of(SearchType.Text, SearchType.Vector),
                     0,
@@ -455,8 +412,10 @@ public class ImageDataAccessTest extends AtlasDataTest {
                     List.of("cup"),
                     null,
                     null,
-                    null
-            );
+                    null,
+                    null,
+                    false
+            ));
 
             assertNotNull(searchResult);
             assertFalse(searchResult.docs().isEmpty());
@@ -477,7 +436,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
         try {
             ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
             List<MongoConnectionTracing.CommandTrace> traces = MongoConnectionTracing.runWithTraces(
-                    () -> imageDataAccess.search("statue", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null)
+                    () -> imageDataAccess.search(request("statue", 0, null, List.of("bear"), null, null, null, null, null, null, null, null, null))
             );
 
             assertFalse(traces.isEmpty());
@@ -487,5 +446,51 @@ public class ImageDataAccessTest extends AtlasDataTest {
         } finally {
             System.clearProperty(MongoConnectionTracing.TRACE_COMMANDS_PROPERTY);
         }
+    }
+
+    private static SearchRequest request(
+            String text,
+            int page,
+            Boolean hasPerson,
+            List<String> animal,
+            List<String> appliance,
+            List<String> electronic,
+            List<String> food,
+            List<String> furniture,
+            List<String> indoor,
+            List<String> kitchen,
+            List<String> outdoor,
+            List<String> sports,
+            List<String> vehicle
+    ) {
+        return request(text, EnumSet.of(SearchType.Text), page, hasPerson, animal, appliance, electronic, food, furniture, indoor, kitchen, outdoor, sports, vehicle, null, false);
+    }
+
+    private static SearchRequest request(
+            String text,
+            Set<SearchType> searchTypes,
+            int page,
+            Boolean hasPerson,
+            List<String> animal,
+            List<String> appliance,
+            List<String> electronic,
+            List<String> food,
+            List<String> furniture,
+            List<String> indoor,
+            List<String> kitchen,
+            List<String> outdoor,
+            List<String> sports,
+            List<String> vehicle,
+            Double vectorScoreCutoff,
+            boolean includeLicense
+    ) {
+        return SearchRequest.of(
+                text,
+                searchTypes,
+                page,
+                new SearchFilters(hasPerson, animal, appliance, electronic, food, furniture, indoor, kitchen, outdoor, sports, vehicle),
+                vectorScoreCutoff,
+                includeLicense
+        );
     }
 }
