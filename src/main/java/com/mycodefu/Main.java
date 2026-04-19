@@ -9,8 +9,8 @@ import com.mycodefu.model.SearchCapabilities;
 import com.mycodefu.model.SearchType;
 import com.mycodefu.mongodb.CategoryDataAccess;
 import com.mycodefu.mongodb.ImageDataAccess;
-import com.mycodefu.mongodb.SearchFilters;
-import com.mycodefu.mongodb.SearchRequest;
+import com.mycodefu.mongodb.search.SearchFilters;
+import com.mycodefu.mongodb.search.SearchRequest;
 import com.mycodefu.service.SimpleServer;
 
 import java.io.IOException;

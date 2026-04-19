@@ -1,4 +1,4 @@
-package com.mycodefu.mongodb;
+package com.mycodefu.mongodb.search;
 
 import com.mycodefu.model.SearchType;
 
@@ -13,6 +13,8 @@ public record SearchRequest(
         double vectorScoreCutoff,
         boolean includeLicense
 ) {
+    public static final double DEFAULT_VECTOR_SCORE_CUTOFF = 0.88;
+
     public SearchRequest {
         searchTypes = searchTypes == null || searchTypes.isEmpty()
                 ? EnumSet.of(SearchType.Text)
@@ -35,7 +37,7 @@ public record SearchRequest(
                 searchTypes == null || searchTypes.isEmpty() ? EnumSet.of(SearchType.Text) : EnumSet.copyOf(searchTypes),
                 page == null ? 0 : page,
                 filters,
-                vectorScoreCutoff == null ? ImageDataAccess.DEFAULT_VECTOR_SCORE_CUTOFF : vectorScoreCutoff,
+                vectorScoreCutoff == null ? DEFAULT_VECTOR_SCORE_CUTOFF : vectorScoreCutoff,
                 includeLicense
         );
     }
@@ -50,10 +52,6 @@ public record SearchRequest(
 
     public boolean vectorOnly() {
         return searchTypes.equals(EnumSet.of(SearchType.Vector));
-    }
-
-    public boolean requiresVectorSearch() {
-        return searchTypes.contains(SearchType.Vector);
     }
 
     public boolean returnStoredSource() {

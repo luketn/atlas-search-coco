@@ -6,6 +6,8 @@ import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.model.SearchType;
 import com.mycodefu.mongodb.atlas.MongoConnection;
 import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
+import com.mycodefu.mongodb.search.SearchFilters;
+import com.mycodefu.mongodb.search.SearchRequest;
 import org.bson.Document;
 import org.junit.Test;
 

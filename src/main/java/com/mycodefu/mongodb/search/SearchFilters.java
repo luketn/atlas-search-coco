@@ -1,4 +1,4 @@
-package com.mycodefu.mongodb;
+package com.mycodefu.mongodb.search;
 
 import com.mongodb.client.model.search.SearchOperator;
 import org.bson.Document;
@@ -42,14 +42,14 @@ public record SearchFilters(
     public List<SearchOperator> toSearchClauses() {
         ArrayList<SearchOperator> clauses = new ArrayList<>();
         if (hasPerson != null) {
-            clauses.add(ImageDataAccess.equalsClause("hasPerson", hasPerson));
+            clauses.add(equalsClause("hasPerson", hasPerson));
         }
         for (Map.Entry<String, List<String>> entry : categories().entrySet()) {
             if (entry.getValue() == null) {
                 continue;
             }
             for (String value : entry.getValue()) {
-                clauses.add(ImageDataAccess.equalsClause(entry.getKey(), value));
+                clauses.add(equalsClause(entry.getKey(), value));
             }
         }
         return clauses;
@@ -90,6 +90,10 @@ public record SearchFilters(
         categories.put("sports", sports);
         categories.put("vehicle", vehicle);
         return categories;
+    }
+
+    private static SearchOperator equalsClause(String fieldName, Object value) {
+        return SearchOperator.of(new Document("equals", new Document("path", fieldName).append("value", value)));
     }
 
     private static List<String> normalise(List<String> values) {
