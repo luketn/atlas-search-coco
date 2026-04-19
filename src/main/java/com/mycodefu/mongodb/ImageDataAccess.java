@@ -43,7 +43,7 @@ import static com.mycodefu.mongodb.atlas.MongoConnection.database_name;
 public class ImageDataAccess implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(ImageDataAccess.class);
 
-    private static final int PAGE_SIZE = 5;
+    private static final int PAGE_SIZE = 10;
     private static final int HYBRID_RANK_OFFSET = 60;
     private static final int MAX_VECTOR_RESULTS = 10_000;
     private static final int MIN_VECTOR_CANDIDATES = 100;

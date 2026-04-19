@@ -150,7 +150,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
                 null
         );
         assertNotNull(searchResult);
-        assertEquals(5, searchResult.docs().size());
+        assertEquals(10, searchResult.docs().size());
 
         assertEquals(13, searchResult.meta().getFirst().count().total());
 
@@ -170,7 +170,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
                 null
         );
         assertNotNull(searchResultPage2);
-        assertEquals(5, searchResultPage2.docs().size());
+        assertEquals(3, searchResultPage2.docs().size());
 
         ImageSearchResult searchResultPage3 = imageDataAccess.search(
                 "cat",
@@ -188,7 +188,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
                 null
         );
         assertNotNull(searchResultPage3);
-        assertEquals(3, searchResultPage3.docs().size());
+        assertEquals(0, searchResultPage3.docs().size());
     }
 
     @Test

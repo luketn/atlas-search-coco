@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title>Atlas Coco</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#13315c" />
+      <stop offset="100%" stop-color="#0b6e4f" />
+    </linearGradient>
+    <linearGradient id="ring" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#f4d35e" />
+      <stop offset="100%" stop-color="#f7b267" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#bg)" />
+  <circle cx="30" cy="30" r="16" fill="none" stroke="url(#ring)" stroke-width="6" />
+  <path d="M42 42l10 10" stroke="#f7f7f2" stroke-linecap="round" stroke-width="6" />
+</svg>

@@ -2,100 +2,321 @@
 <html>
 <head>
     <title>MongoDB Atlas Search Service</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/@material-ui/core@latest/umd/material-ui.development.js" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --surface: #ffffff;
-            --surface-muted: #f5f2ec;
-            --surface-strong: #f2ece3;
-            --stroke: #ddd3c6;
-            --text: #1e1b18;
-            --text-muted: #6d655b;
-            --accent: #c44b1c;
-            --accent-soft: rgba(196, 75, 28, 0.12);
+            --bg: #f5efe6;
+            --bg-accent: #efe2d0;
+            --panel: rgba(255, 250, 244, 0.90);
+            --panel-strong: rgba(255, 255, 255, 0.96);
+            --stroke: rgba(92, 69, 43, 0.16);
+            --text: #23180f;
+            --muted: #726454;
+            --accent: #b4531d;
+            --accent-deep: #8f3e14;
+            --accent-soft: rgba(180, 83, 29, 0.14);
+            --shadow: 0 20px 50px rgba(69, 45, 20, 0.12);
+            --toolbar-height: 92px;
         }
 
-        body {
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
             margin: 0;
-            padding: 16px;
+            height: 100%;
+            overflow: hidden;
             color: var(--text);
             background:
-                radial-gradient(circle at top left, rgba(196, 75, 28, 0.10), transparent 28%),
-                radial-gradient(circle at top right, rgba(34, 94, 83, 0.10), transparent 24%),
-                linear-gradient(180deg, #fbf8f4 0%, #f7f2ea 100%);
-            font-family: "Roboto", sans-serif;
+                radial-gradient(circle at top left, rgba(180, 83, 29, 0.17), transparent 28%),
+                radial-gradient(circle at top right, rgba(27, 88, 94, 0.10), transparent 26%),
+                linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
+            font-family: "Manrope", sans-serif;
         }
 
-        .result-row {
+        #root {
+            height: 100%;
+        }
+
+        .app-shell {
             display: flex;
-            gap: 16px;
-            padding: 12px;
-            margin-bottom: 12px;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            min-height: var(--toolbar-height);
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--stroke);
+            background: rgba(255, 250, 244, 0.68);
+            backdrop-filter: blur(22px);
+        }
+
+        .brand-lockup {
+            min-width: 290px;
+        }
+
+        .brand-title {
+            margin: 0;
+            font-family: "Fraunces", serif;
+            font-size: 1.95rem;
+            line-height: 1;
+            letter-spacing: -0.03em;
+        }
+
+        .brand-subtitle {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .toolbar-search {
+            flex: 1;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px minmax(0, 1fr);
+            gap: 18px;
+            height: calc(100% - var(--toolbar-height));
+            padding: 18px;
+            min-height: 0;
+        }
+
+        .sidebar,
+        .content-panel {
+            min-height: 0;
             border: 1px solid var(--stroke);
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.82);
-            box-shadow: 0 10px 30px rgba(52, 38, 20, 0.06);
+            border-radius: 26px;
+            background: var(--panel);
+            box-shadow: var(--shadow);
+        }
+
+        .sidebar {
+            overflow: auto;
+            padding: 20px 18px 22px;
+        }
+
+        .content-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background:
+                linear-gradient(180deg, rgba(255, 252, 247, 0.98) 0%, rgba(252, 247, 239, 0.94) 100%);
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--stroke);
+            background: rgba(255, 255, 255, 0.52);
+        }
+
+        .results-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 18px 22px 24px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .result-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid rgba(92, 69, 43, 0.12);
+            border-radius: 22px;
+            background: var(--panel-strong);
+            box-shadow: 0 12px 28px rgba(69, 45, 20, 0.08);
             cursor: pointer;
-            transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+            transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
         }
 
-        .result-row:hover {
-            transform: translateY(-2px);
-            border-color: rgba(196, 75, 28, 0.45);
-            box-shadow: 0 16px 32px rgba(52, 38, 20, 0.10);
+        .result-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(180, 83, 29, 0.34);
+            box-shadow: 0 18px 34px rgba(69, 45, 20, 0.12);
         }
 
-        .result-image {
-            width: 240px;
-            max-width: 100%;
+        .result-thumb {
+            width: 100%;
+            aspect-ratio: 1 / 1;
             object-fit: cover;
-            border-radius: 12px;
-            background: var(--surface-muted);
+            border-radius: 16px;
+            background: #f2ebdf;
         }
 
-        .viewer-image {
+        .result-caption {
+            font-size: 0.95rem;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .card-meta {
+            color: var(--muted);
+            font-size: 0.83rem;
+        }
+
+        .full-screen-view {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+            gap: 22px;
+            height: 100%;
+            align-items: stretch;
+        }
+
+        .full-screen-stage {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 0;
+            padding: 18px;
+            border-radius: 24px;
+            background:
+                linear-gradient(180deg, rgba(243, 235, 223, 0.8) 0%, rgba(255, 249, 241, 0.96) 100%);
+        }
+
+        .full-screen-image {
             display: block;
-            max-width: min(100%, 1400px);
-            max-height: 72vh;
+            max-width: 100%;
+            max-height: 62vh;
             width: auto;
             height: auto;
-            margin: 0 auto;
-            border-radius: 18px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
-            background: #f7f2ea;
+            border-radius: 20px;
+            box-shadow: 0 24px 42px rgba(0, 0, 0, 0.14);
+            background: #f2ebdf;
         }
 
-        .viewer-arrow {
-            min-width: 56px;
-            width: 56px;
-            height: 56px;
-            border-radius: 999px;
-            border: none;
-            background: rgba(255, 255, 255, 0.92);
-            color: var(--text);
-            font-size: 28px;
-            line-height: 1;
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
-            cursor: pointer;
+        .full-screen-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            min-height: 0;
+            padding: 18px;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.78);
+            border: 1px solid rgba(92, 69, 43, 0.10);
         }
 
-        .viewer-arrow:disabled {
-            opacity: 0.35;
-            cursor: default;
-            box-shadow: none;
+        .full-screen-caption {
+            font-family: "Fraunces", serif;
+            font-size: 1.5rem;
+            line-height: 1.25;
+            margin: 0;
         }
 
-        @media (max-width: 900px) {
-            .result-row {
+        .full-screen-meta {
+            color: var(--muted);
+            font-size: 0.94rem;
+            line-height: 1.7;
+        }
+
+        .nav-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .section-label {
+            margin-bottom: 10px;
+            color: var(--muted);
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .filter-group {
+            margin-bottom: 20px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid rgba(92, 69, 43, 0.08);
+        }
+
+        .chip-cloud {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        @media (max-width: 1100px) {
+            .toolbar {
                 flex-direction: column;
+                align-items: stretch;
             }
 
-            .result-image {
-                width: 100%;
+            .brand-lockup {
+                min-width: 0;
+            }
+
+            .workspace {
+                grid-template-columns: 1fr;
+                height: auto;
+                overflow: auto;
+            }
+
+            .sidebar {
+                max-height: none;
+            }
+
+            .content-panel {
+                min-height: 60vh;
+            }
+
+            .full-screen-view {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            html, body {
+                overflow: auto;
+            }
+
+            .app-shell {
+                height: auto;
+                min-height: 100%;
+            }
+
+            .toolbar {
+                padding: 18px 16px;
+            }
+
+            .workspace {
+                padding: 14px;
+                gap: 14px;
+            }
+
+            .content-header,
+            .results-body {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+
+            .results-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -117,7 +338,6 @@
         Grid,
         Button,
         Chip,
-        Dialog,
         CircularProgress,
     } = MaterialUI;
 
@@ -133,7 +353,7 @@
         'sports',
         'vehicle'
     ];
-    const PAGE_SIZE = 5;
+    const PAGE_SIZE = 10;
 
     function toTitleCase(value) {
         return value.charAt(0).toUpperCase() + value.slice(1);
@@ -179,12 +399,12 @@
         const [vectorSearchEnabled, setVectorSearchEnabled] = useState(false);
         const [searchError, setSearchError] = useState('');
         const [loadingPage, setLoadingPage] = useState(false);
+        const [viewMode, setViewMode] = useState('Grid');
         const [viewer, setViewer] = useState(null);
         const [loadingViewerPage, setLoadingViewerPage] = useState(false);
         const requestKeyRef = useRef('');
 
         const domain = document.location.host.includes('localhost') ? 'http://localhost:8222' : '';
-
         const currentPageDocs = pageDocs[page] || [];
         const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -274,13 +494,18 @@
                         return;
                     }
                     const meta = (data.meta && data.meta.length > 0) ? data.meta[0] : null;
+                    const docs = data.docs || [];
                     setPageDocs(previous => ({
                         ...previous,
-                        [page]: data.docs || [],
+                        [page]: docs,
                     }));
                     setFacet(meta ? meta.facet : null);
                     setTotal(meta && meta.count ? meta.count.total : 0);
                     setSearchError('');
+
+                    if (docs.length > 0 && (!viewer || page === 0)) {
+                        setViewer({ page, index: 0 });
+                    }
                 })
                 .catch(error => {
                     if (requestKeyRef.current !== requestKey) {
@@ -318,15 +543,16 @@
                     return response.json();
                 })
                 .then(data => {
+                    const docs = data.docs || [];
                     const meta = (data.meta && data.meta.length > 0) ? data.meta[0] : null;
                     setPageDocs(previous => ({
                         ...previous,
-                        [targetPage]: data.docs || [],
+                        [targetPage]: docs,
                     }));
                     if (meta && meta.count) {
                         setTotal(meta.count.total);
                     }
-                    return data.docs || [];
+                    return docs;
                 });
         }
 
@@ -363,10 +589,7 @@
 
         function openViewer(pageNumber, indexWithinPage) {
             setViewer({ page: pageNumber, index: indexWithinPage });
-        }
-
-        function closeViewer() {
-            setViewer(null);
+            setViewMode('Full Screen');
         }
 
         async function moveViewer(direction) {
@@ -393,10 +616,12 @@
             try {
                 const nextDocs = pageDocs[targetPage] || await fetchPageData(targetPage);
                 setPage(targetPage);
-                setViewer({
-                    page: targetPage,
-                    index: direction === 'next' ? 0 : Math.max(0, nextDocs.length - 1),
-                });
+                if (nextDocs.length > 0) {
+                    setViewer({
+                        page: targetPage,
+                        index: direction === 'next' ? 0 : Math.max(0, nextDocs.length - 1),
+                    });
+                }
             } catch (error) {
                 setSearchError(error.message || 'Failed to load more results');
             } finally {
@@ -413,38 +638,54 @@
         }, [viewer, pageDocs]);
 
         const canMovePrev = !!viewer && (viewer.index > 0 || viewer.page > 0);
-        const canMoveNext = !!viewer && (
-            viewerImage && (
-                viewer.index < ((pageDocs[viewer.page] || []).length - 1)
-                || viewer.page + 1 < totalPages
-            )
+        const canMoveNext = !!viewer && viewerImage && (
+            viewer.index < ((pageDocs[viewer.page] || []).length - 1) || viewer.page + 1 < totalPages
         );
 
         return (
-            <div tabIndex="0">
-                <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                        <Typography variant="h5" component="h1">
-                            MongoDB Atlas Search Service
-                        </Typography>
-                        <Typography variant="body2" component="p" color="textSecondary">
-                            Search COCO image captions and filter by detected object categories.
-                        </Typography>
-                    </Grid>
+            <div className="app-shell">
+                <header className="toolbar">
+                    <div className="brand-lockup">
+                        <h1 className="brand-title">Atlas Coco</h1>
+                        <div className="brand-subtitle">Caption search, semantic retrieval, and browsable image discovery.</div>
+                    </div>
+                    <div className="toolbar-search">
+                        <TextField
+                            fullWidth
+                            variant="outlined"
+                            label="Search captions and semantic meaning"
+                            value={query}
+                            onChange={event => {
+                                setPage(0);
+                                setQuery(event.target.value);
+                            }}
+                            InputProps={{
+                                style: {
+                                    background: 'rgba(255,255,255,0.88)',
+                                    borderRadius: 18,
+                                    fontSize: '1rem',
+                                }
+                            }}
+                        />
+                    </div>
+                </header>
 
-                    <Grid item xs={12}>
-                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <TextField
-                                sx={{ flexGrow: 1, minWidth: 280 }}
-                                label="Caption Search"
-                                value={query}
-                                onChange={event => {
-                                    setPage(0);
-                                    setQuery(event.target.value);
-                                }}
-                            />
+                <main className="workspace">
+                    <aside className="sidebar">
+                        <div className="filter-group">
+                            <div className="section-label">View</div>
                             <FormControl component="fieldset">
-                                <RadioGroup row value={hasPerson} onChange={event => {
+                                <RadioGroup value={viewMode} onChange={event => setViewMode(event.target.value)}>
+                                    <FormControlLabel value="Full Screen" control={<Radio />} label="Full Screen" />
+                                    <FormControlLabel value="Grid" control={<Radio />} label="Grid" />
+                                </RadioGroup>
+                            </FormControl>
+                        </div>
+
+                        <div className="filter-group">
+                            <div className="section-label">People Filter</div>
+                            <FormControl component="fieldset">
+                                <RadioGroup value={hasPerson} onChange={event => {
                                     setPage(0);
                                     setHasPerson(event.target.value);
                                 }}>
@@ -453,11 +694,11 @@
                                     <FormControlLabel value="false" control={<Radio />} label="No Person" />
                                 </RadioGroup>
                             </FormControl>
-                        </Box>
+                        </div>
 
                         {vectorSearchEnabled && (
-                            <Box sx={{ marginTop: 1, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <Typography variant="body2" color="textSecondary">Search Type</Typography>
+                            <div className="filter-group">
+                                <div className="section-label">Search Type</div>
                                 <FormControlLabel
                                     control={
                                         <Checkbox
@@ -476,28 +717,21 @@
                                     }
                                     label="Vector"
                                 />
-                            </Box>
+                            </div>
                         )}
 
-                        <Box sx={{ marginTop: 1, minHeight: 28 }}>
-                            {loadingPage && <Typography color="textSecondary">Refreshing results…</Typography>}
-                            {!loadingPage && <Typography color="error">{searchError}</Typography>}
-                        </Box>
-                    </Grid>
-
-                    <Grid item xs={12} md={3}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <div className="filter-group">
+                            <div className="section-label">Categories</div>
                             {FILTER_KEYS.map(key => (
-                                <Box key={key}>
-                                    <Typography color="textSecondary">{toTitleCase(key)}</Typography>
+                                <Box key={key} sx={{ marginBottom: 2 }}>
+                                    <Typography style={{ fontWeight: 800, marginBottom: 6 }}>{toTitleCase(key)}</Typography>
                                     {optionsByFilter[key].map(value => (
-                                        <FormControl key={`${key}.${value}`}>
+                                        <FormControl key={`${key}.${value}`} style={{ display: 'block' }}>
                                             <FormControlLabel
                                                 control={
                                                     <Checkbox
                                                         checked={filters[key].includes(value)}
                                                         onChange={event => toggleFilter(key, value, event.target.checked)}
-                                                        name={`${key}.${value}`}
                                                     />
                                                 }
                                                 label={`${value} (${facetCount(key, value)})`}
@@ -506,122 +740,133 @@
                                     ))}
                                 </Box>
                             ))}
-                        </Box>
-                    </Grid>
+                        </div>
+                    </aside>
 
-                    <Grid item xs={12} md={9}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1, gap: 2, flexWrap: 'wrap' }}>
-                            <Typography variant="subtitle1">
-                                {vectorSearchEnabled
-                                    ? `Results: ${total} (${searchTypes.join(' + ')})`
-                                    : `Results: ${total}`}
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Button variant="outlined" disabled={page === 0} onClick={() => setPage(page - 1)}>
-                                    Previous
-                                </Button>
-                                <Typography variant="body2">{`Page ${page + 1} / ${totalPages}`}</Typography>
-                                <Button
-                                    variant="outlined"
-                                    disabled={page + 1 >= totalPages}
-                                    onClick={() => setPage(page + 1)}
-                                >
-                                    Next
-                                </Button>
-                            </Box>
-                        </Box>
-
-                        {currentPageDocs.map((image, index) => (
-                            <div
-                                key={`image.${image._id}`}
-                                className="result-row"
-                                onClick={() => openViewer(page, index)}
-                            >
-                                <img className="result-image" src={image.url} alt={image.caption} />
-                                <Box sx={{ minWidth: 0 }}>
-                                    <Typography variant="body1">{image.caption}</Typography>
-                                    <Typography variant="body2" color="textSecondary">
-                                        {image.hasPerson ? 'Contains a person' : 'No person detected'}
+                    <section className="content-panel">
+                        <div className="content-header">
+                            <div>
+                                <Typography variant="h6" style={{ fontFamily: 'Fraunces, serif' }}>
+                                    {viewMode === 'Grid' ? 'Search Results' : 'Focused Result'}
+                                </Typography>
+                                <Typography variant="body2" color="textSecondary">
+                                    {vectorSearchEnabled
+                                        ? `${total} results - ${searchTypes.join(' + ')} - ${PAGE_SIZE} per page`
+                                        : `${total} results - ${PAGE_SIZE} per page`}
+                                </Typography>
+                                {searchError && (
+                                    <Typography variant="body2" style={{ color: '#b00020', marginTop: 6 }}>
+                                        {searchError}
                                     </Typography>
-                                    <Typography variant="caption" color="textSecondary">
-                                        {`${image.width} x ${image.height}`}
-                                    </Typography>
-                                    <Box sx={{ marginTop: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                        {FILTER_KEYS.map(key =>
-                                            (image[key] || []).map(value => (
-                                                <Chip key={`${image._id}.${key}.${value}`} size="small" label={`${key}: ${value}`} />
-                                            ))
-                                        )}
-                                    </Box>
-                                </Box>
+                                )}
                             </div>
-                        ))}
-                    </Grid>
-                </Grid>
 
-                <Dialog open={!!viewerImage} onClose={closeViewer} maxWidth={false} fullWidth PaperProps={{
-                    style: {
-                        background: 'linear-gradient(180deg, #f7f2ea 0%, #fffaf2 100%)',
-                        borderRadius: 24,
-                        padding: 0,
-                        overflow: 'hidden',
-                        maxWidth: 'min(96vw, 1600px)',
-                    }
-                }}>
-                    {viewerImage && (
-                        <Box sx={{ position: 'relative', padding: { xs: 2, md: 4 } }}>
-                            <Box sx={{ position: 'absolute', top: 18, right: 18 }}>
-                                <Button onClick={closeViewer}>Close</Button>
-                            </Box>
-
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 } }}>
-                                <button className="viewer-arrow" onClick={() => moveViewer('prev')} disabled={!canMovePrev || loadingViewerPage}>
-                                    &#8249;
-                                </button>
-
-                                <Box sx={{ flexGrow: 1 }}>
-                                    <img className="viewer-image" src={viewerImage.url} alt={viewerImage.caption} />
-                                </Box>
-
-                                <button className="viewer-arrow" onClick={() => moveViewer('next')} disabled={!canMoveNext || loadingViewerPage}>
-                                    &#8250;
-                                </button>
-                            </Box>
-
-                            <Box sx={{ marginTop: 3, paddingX: { xs: 1, md: 4 } }}>
-                                <Typography variant="overline" color="textSecondary">
-                                    {`Result ${viewer.page * PAGE_SIZE + viewer.index + 1} of ${total}`}
-                                </Typography>
-                                <Typography variant="h6" component="h2">
-                                    {viewerImage.caption}
-                                </Typography>
-                                <Typography variant="body2" color="textSecondary">
-                                    {viewerImage.hasPerson ? 'Contains a person' : 'No person detected'}
-                                </Typography>
-                                <Typography variant="body2" color="textSecondary">
-                                    {`${viewerImage.width} x ${viewerImage.height}`}
-                                </Typography>
-
-                                <Box sx={{ marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                                    {FILTER_KEYS.flatMap(key =>
-                                        (viewerImage[key] || []).map(value => (
-                                            <Chip key={`viewer.${viewerImage._id}.${key}.${value}`} label={`${key}: ${value}`} />
-                                        ))
-                                    )}
-                                </Box>
-
-                                {loadingViewerPage && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginTop: 2 }}>
+                            <div className="nav-row">
+                                {loadingPage && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <CircularProgress size={18} />
-                                        <Typography variant="body2" color="textSecondary">
-                                            Loading more results…
-                                        </Typography>
+                                        <Typography variant="body2" color="textSecondary">Refreshing</Typography>
                                     </Box>
                                 )}
-                            </Box>
-                        </Box>
-                    )}
-                </Dialog>
+
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Button variant="outlined" disabled={page === 0} onClick={() => setPage(page - 1)}>
+                                        Previous
+                                    </Button>
+                                    <Typography variant="body2">{`Page ${page + 1} / ${totalPages}`}</Typography>
+                                    <Button variant="outlined" disabled={page + 1 >= totalPages} onClick={() => setPage(page + 1)}>
+                                        Next
+                                    </Button>
+                                </Box>
+                            </div>
+                        </div>
+
+                        <div className="results-body">
+                            {viewMode === 'Grid' ? (
+                                <div className="results-grid">
+                                    {currentPageDocs.map((image, index) => (
+                                        <article
+                                            key={`image.${image._id}`}
+                                            className="result-card"
+                                            onClick={() => openViewer(page, index)}
+                                        >
+                                            <img className="result-thumb" src={image.url} alt={image.caption} />
+                                            <div className="result-caption">{image.caption}</div>
+                                            <div className="card-meta">
+                                                {image.hasPerson ? 'Contains a person' : 'No person detected'}
+                                            </div>
+                                            <div className="card-meta">{`${image.width} x ${image.height}`}</div>
+                                            <div className="chip-cloud">
+                                                {FILTER_KEYS.flatMap(key =>
+                                                    (image[key] || []).map(value => (
+                                                        <Chip
+                                                            key={`${image._id}.${key}.${value}`}
+                                                            size="small"
+                                                            label={`${key}: ${value}`}
+                                                        />
+                                                    ))
+                                                )}
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                            ) : viewerImage ? (
+                                <div className="full-screen-view">
+                                    <div className="full-screen-stage">
+                                        <img className="full-screen-image" src={viewerImage.url} alt={viewerImage.caption} />
+                                    </div>
+
+                                    <div className="full-screen-sidebar">
+                                        <div className="nav-row">
+                                            <Button variant="outlined" disabled={!canMovePrev || loadingViewerPage} onClick={() => moveViewer('prev')}>
+                                                Previous
+                                            </Button>
+                                            <Typography variant="body2" color="textSecondary">
+                                                {`Result ${viewer.page * PAGE_SIZE + viewer.index + 1} of ${total}`}
+                                            </Typography>
+                                            <Button variant="outlined" disabled={!canMoveNext || loadingViewerPage} onClick={() => moveViewer('next')}>
+                                                Next
+                                            </Button>
+                                        </div>
+
+                                        <h2 className="full-screen-caption">{viewerImage.caption}</h2>
+
+                                        <div className="full-screen-meta">
+                                            <div>{viewerImage.hasPerson ? 'Contains a person' : 'No person detected'}</div>
+                                            <div>{`${viewerImage.width} x ${viewerImage.height}`}</div>
+                                        </div>
+
+                                        <div className="chip-cloud">
+                                            {FILTER_KEYS.flatMap(key =>
+                                                (viewerImage[key] || []).map(value => (
+                                                    <Chip
+                                                        key={`viewer.${viewerImage._id}.${key}.${value}`}
+                                                        label={`${key}: ${value}`}
+                                                    />
+                                                ))
+                                            )}
+                                        </div>
+
+                                        {loadingViewerPage && (
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <CircularProgress size={18} />
+                                                <Typography variant="body2" color="textSecondary">
+                                                    Loading more results…
+                                                </Typography>
+                                            </Box>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <Box sx={{ paddingTop: 4 }}>
+                                    <Typography variant="body1" color="textSecondary">
+                                        Select a result to inspect it in full-screen mode.
+                                    </Typography>
+                                </Box>
+                            )}
+                        </div>
+                    </section>
+                </main>
             </div>
         );
     }
