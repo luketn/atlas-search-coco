@@ -45,6 +45,9 @@ public class ImageDataAccess implements AutoCloseable {
 
     private static final int PAGE_SIZE = 5;
     private static final int HYBRID_RANK_OFFSET = 60;
+    private static final int MAX_VECTOR_RESULTS = 10_000;
+    private static final int MIN_VECTOR_CANDIDATES = 100;
+    private static final int MAX_VECTOR_CANDIDATES = 10_000;
     private static final List<String> FACET_FIELDS = List.of(
             "animal",
             "appliance",
@@ -251,8 +254,8 @@ public class ImageDataAccess implements AutoCloseable {
         int skip = page == null ? 0 : page * PAGE_SIZE;
         List<Double> queryVector = LMStudioEmbedding.embed(text).embedding();
         long vectorLimit = Math.max(1L, imageDocumentCollection.countDocuments(filters.toVectorFilterDocument()));
-        int vectorResultLimit = (int) Math.min(Integer.MAX_VALUE, vectorLimit);
-        int numCandidates = Math.max(vectorResultLimit, 100);
+        int vectorResultLimit = (int) Math.min(MAX_VECTOR_RESULTS, vectorLimit);
+        int numCandidates = Math.min(MAX_VECTOR_CANDIDATES, Math.max(vectorResultLimit, MIN_VECTOR_CANDIDATES));
 
         List<Bson> aggregateStages;
         if (searchTypes.equals(EnumSet.of(SearchType.Vector))) {
