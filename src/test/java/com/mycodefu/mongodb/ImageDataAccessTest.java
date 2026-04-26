@@ -6,6 +6,7 @@ import com.mycodefu.model.ImageSearchResult;
 import com.mycodefu.model.SearchType;
 import com.mycodefu.mongodb.atlas.MongoConnectionTracing;
 import com.mycodefu.mongodb.search.SearchFilters;
+import com.mycodefu.mongodb.search.SearchPipelines;
 import com.mycodefu.mongodb.search.SearchRequest;
 import org.junit.Test;
 
@@ -46,6 +47,41 @@ public class ImageDataAccessTest extends AtlasDataTest {
         assertNull(exampleImage.kitchen());
         assertNull(exampleImage.sports());
         assertNull(exampleImage.vehicle());
+    }
+
+    @Test
+    public void delete_removes_image_by_id() {
+        ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+        Image image = new Image(
+                9_999_001,
+                "Temporary delete test image.",
+                null,
+                null,
+                "http://example.test/delete-test.jpg",
+                100,
+                100,
+                new Date(),
+                "Test License",
+                null,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+        imageDataAccess.insert(image);
+
+        assertNotNull(imageDataAccess.get(image._id()));
+        assertTrue(imageDataAccess.delete(image._id()));
+        assertNull(imageDataAccess.get(image._id()));
+        assertFalse(imageDataAccess.delete(image._id()));
     }
 
     @Test
@@ -161,6 +197,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
         assertNotNull(searchResult);
         assertEquals(10, searchResult.docs().size());
         assertTrue(searchResult.meta().getFirst().hasMore());
+        assertDateCapturedDescending(searchResult.docs());
 
         ImageSearchResult searchResultPage2 = imageDataAccess.search(request("cat", 1, null, null, null, null, null, null, null, null, null, null, null));
         assertNotNull(searchResultPage2);
@@ -195,7 +232,8 @@ public class ImageDataAccessTest extends AtlasDataTest {
         ));
 
         assertNotNull(searchResult);
-        assertEquals(10, searchResult.docs().size());
+        assertEquals(SearchPipelines.pageSize(), searchResult.docs().size());
+        assertDateCapturedDescending(searchResult.docs());
         assertTrue(searchResult.meta().getFirst().hasMore());
     }
 
@@ -276,7 +314,7 @@ public class ImageDataAccessTest extends AtlasDataTest {
 
             assertNotNull(searchResult);
             assertFalse(searchResult.docs().isEmpty());
-            assertEquals(79047, searchResult.docs().getFirst()._id());
+            assertDateCapturedDescending(searchResult.docs());
             assertNull(searchResult.docs().getFirst().captionEmbedding());
             assertNull(searchResult.docs().getFirst().captionEmbeddingModel());
             assertNull(searchResult.docs().getFirst().licenseName());
@@ -313,8 +351,9 @@ public class ImageDataAccessTest extends AtlasDataTest {
 
             assertNotNull(searchResult);
             assertFalse(searchResult.docs().isEmpty());
-            assertEquals("Attribution-NonCommercial-ShareAlike License", searchResult.docs().getFirst().licenseName());
-            assertEquals("http://creativecommons.org/licenses/by-nc-sa/2.0/", searchResult.docs().getFirst().licenseUrl());
+            assertDateCapturedDescending(searchResult.docs());
+            assertNotNull(searchResult.docs().getFirst().licenseName());
+            assertNotNull(searchResult.docs().getFirst().licenseUrl());
             assertNull(searchResult.meta().getFirst().facet());
         } finally {
             LMStudioEmbedding.setEmbeddingProviderForTests(null);
@@ -518,5 +557,15 @@ public class ImageDataAccessTest extends AtlasDataTest {
                 new SearchFilters(hasPerson, animal, appliance, electronic, food, furniture, indoor, kitchen, outdoor, sports, vehicle),
                 includeLicense
         );
+    }
+
+    private static void assertDateCapturedDescending(List<Image> images) {
+        for (int index = 1; index < images.size(); index++) {
+            Date previous = images.get(index - 1).dateCaptured();
+            Date current = images.get(index).dateCaptured();
+            if (previous != null && current != null) {
+                assertFalse(previous.before(current));
+            }
+        }
     }
 }

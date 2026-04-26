@@ -11,6 +11,7 @@ import org.bson.conversions.Bson;
 import java.util.LinkedHashMap;
 import java.util.List;
 
+import static com.mongodb.client.model.Sorts.descending;
 import static com.mongodb.client.model.search.SearchFacet.stringFacet;
 import static com.mongodb.client.model.search.SearchPath.fieldPath;
 
@@ -27,6 +28,7 @@ public final class SearchPipelines {
                         SearchCollector.facet(textOrBrowseOperator(request), facetCollectors()),
                         searchOptions(request).index(MongoConnection.index_name)
                 ),
+                Aggregates.sort(descending("dateCaptured")),
                 Aggregates.skip(skip),
                 Aggregates.limit(PAGE_SIZE + 1),
                 Aggregates.facet(
@@ -44,6 +46,7 @@ public final class SearchPipelines {
         int skip = request.page() * PAGE_SIZE;
         return List.of(
                 searchStage(vectorSearchBody(request, queryVector, resultWindowLimit(request.page()), request.returnStoredSource())),
+                Aggregates.sort(descending("dateCaptured")),
                 Aggregates.skip(skip),
                 Aggregates.limit(PAGE_SIZE + 1),
                 Aggregates.facet(
@@ -60,6 +63,7 @@ public final class SearchPipelines {
         int skip = request.page() * PAGE_SIZE;
         return List.of(
                 rankFusionStage(request, queryVector, resultWindowLimit(request.page())),
+                Aggregates.sort(descending("dateCaptured")),
                 Aggregates.skip(skip),
                 Aggregates.limit(PAGE_SIZE + 1),
                 Aggregates.facet(

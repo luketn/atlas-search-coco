@@ -17,10 +17,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.mongodb.MongoClientSettings.getDefaultCodecRegistry;
-import static com.mycodefu.mongodb.atlas.WaitUtil.waitUntil;
 import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
 import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 import static org.bson.codecs.pojo.Conventions.*;
@@ -31,6 +31,7 @@ public class MongoConnection {
     public static final String database_name = System.getenv("DATABASE_NAME") != null ? System.getenv("DATABASE_NAME") : "atlasSearchCoco";
     public static final String index_name = System.getenv("INDEX_NAME") != null ? System.getenv("INDEX_NAME") : "default";
     public static final String vector_index_name = System.getenv("VECTOR_INDEX_NAME") != null ? System.getenv("VECTOR_INDEX_NAME") : "vector_caption";
+    private static final Duration INDEX_STATUS_LOG_INTERVAL = Duration.ofSeconds(5);
 
     private static String connection_string = System.getenv("CONNECTION_STRING") != null ? System.getenv("CONNECTION_STRING") : "mongodb://localhost:27017/directConnection=true";
     private static MongoClient mongo_client = null;
@@ -91,7 +92,7 @@ public class MongoConnection {
         if (!indexCreated) {
             throw new RuntimeException("Failed to create Atlas search index %s".formatted(indexName));
         }
-        waitUntil(() -> indexReady(collection, indexName), 600, 100, "Atlas search index not ready");
+        waitUntilIndexReady(collection, indexName);
 
         //log time taken to create index with the collection and index name
         Instant end = Instant.now();
@@ -103,6 +104,7 @@ public class MongoConnection {
         boolean indexCreated = false;
         try {
             dropSearchIndex(indexName, collection);
+            log.info("Creating {} '{}' on collection {}", searchIndexDescription(indexName), indexName, collection.getNamespace().getCollectionName());
             if (log.isDebugEnabled()) {
                 Set<String> fields = definitionDocument.containsKey("mappings")
                         ? definitionDocument.getDocument("mappings").getDocument("fields").keySet()
@@ -118,18 +120,51 @@ public class MongoConnection {
         return indexCreated;
     }
 
-    private static boolean indexReady(MongoCollection<?> collection, String indexName) {
+    private static void waitUntilIndexReady(MongoCollection<?> collection, String indexName) {
+        Instant startedAt = Instant.now();
+        Instant lastStatusLogAt = Instant.EPOCH;
+        IndexStatus indexStatus = indexStatus(collection, indexName);
+        while (!"READY".equals(indexStatus.status())) {
+            Instant now = Instant.now();
+            if (Duration.between(lastStatusLogAt, now).compareTo(INDEX_STATUS_LOG_INTERVAL) >= 0) {
+                log.info("{} '{}' status is {} after {}",
+                        searchIndexDescription(indexName),
+                        indexName,
+                        indexStatus.status(),
+                        Duration.between(startedAt, now));
+                lastStatusLogAt = now;
+            }
+
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for Atlas search index %s".formatted(indexName), e);
+            }
+            indexStatus = indexStatus(collection, indexName);
+        }
+
+        log.info("{} '{}' status is READY after {}",
+                searchIndexDescription(indexName),
+                indexName,
+                Duration.between(startedAt, Instant.now()));
+    }
+
+    private static IndexStatus indexStatus(MongoCollection<?> collection, String indexName) {
         ListSearchIndexesIterable<Document> indexDocuments = collection.listSearchIndexes();
         for (Document indexDocument : indexDocuments) {
             String name = indexDocument.getString("name");
             String status = indexDocument.getString("status");
 
-            if (indexName.equals(name) && "READY".equals(status)) {
-                log.debug("Atlas search index READY.");
-                return true;
+            if (indexName.equals(name)) {
+                return new IndexStatus(Optional.ofNullable(status).orElse("UNKNOWN"));
             }
         }
-        return false;
+        return new IndexStatus("MISSING");
+    }
+
+    private static String searchIndexDescription(String indexName) {
+        return vector_index_name.equals(indexName) ? "Atlas Search vector index" : "Atlas Search text index";
     }
 
     private static void dropSearchIndex(String indexName, MongoCollection<?> collection) {
@@ -139,5 +174,8 @@ public class MongoConnection {
                 break;
             }
         }
+    }
+
+    private record IndexStatus(String status) {
     }
 }

@@ -6,6 +6,7 @@ import { Counter, Rate, Trend } from 'k6/metrics';
 const baseUrl = (__ENV.BASE_URL || 'http://localhost:8222').replace(/\/$/, '');
 const requestTimeout = __ENV.REQUEST_TIMEOUT || '10s';
 const includeLicense = (__ENV.INCLUDE_LICENSE || 'false').toLowerCase() === 'true';
+const searchTypes = parseSearchTypes(__ENV.SEARCH_TYPES || __ENV.SEARCH_TYPE || 'text');
 const searchFacetNames = [
   'animal',
   'appliance',
@@ -71,6 +72,7 @@ export default function () {
       endpoint: 'image_search',
       filtered: hasFacetFilters(sample) ? 'true' : 'false',
       include_license: String(includeLicense),
+      search_type: searchTypes.join('_').toLowerCase(),
     },
     timeout: requestTimeout,
   });
@@ -118,6 +120,9 @@ export default function () {
 function toQueryString(sample) {
   const parts = [];
   append(parts, 'text', sample.text);
+  for (const searchType of searchTypes) {
+    append(parts, 'searchType', searchType);
+  }
   append(parts, 'page', sample.page);
   append(parts, 'hasPerson', sample.hasPerson);
   append(parts, 'includeLicense', includeLicense);
@@ -138,6 +143,34 @@ function append(parts, key, value) {
   }
 
   parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+}
+
+function parseSearchTypes(rawValue) {
+  const rawTokens = String(rawValue)
+    .split(',')
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  if (rawTokens.length === 0) {
+    throw new Error('SEARCH_TYPE must be one of: text, vector, both');
+  }
+
+  const selected = new Set();
+  for (const rawToken of rawTokens) {
+    const token = rawToken.toLowerCase();
+    if (token === 'both' || token === 'combined' || token === 'hybrid') {
+      selected.add('Text');
+      selected.add('Vector');
+    } else if (token === 'text') {
+      selected.add('Text');
+    } else if (token === 'vector') {
+      selected.add('Vector');
+    } else {
+      throw new Error(`Invalid SEARCH_TYPE value "${rawToken}". Use text, vector, both, or text,vector.`);
+    }
+  }
+
+  return ['Text', 'Vector'].filter((searchType) => selected.has(searchType));
 }
 
 function hasFacetFilters(sample) {

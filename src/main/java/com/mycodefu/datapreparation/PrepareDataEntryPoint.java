@@ -1,5 +1,14 @@
 package com.mycodefu.datapreparation;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.mycodefu.lmstudio.LMStudioEmbedding;
 import com.mycodefu.model.Category;
 import com.mycodefu.model.Image;
@@ -22,8 +31,11 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -38,9 +50,67 @@ import static com.mycodefu.datapreparation.util.JsonUtil.writeToFile;
  */
 public class PrepareDataEntryPoint {
     private static final Logger log = LoggerFactory.getLogger(PrepareDataEntryPoint.class);
+    private static final int IMPORT_BATCH_SIZE = 1_000;
+    private static final Duration IMPORT_PROGRESS_LOG_INTERVAL = Duration.ofSeconds(5);
+    private static final ObjectMapper preparedDataMapper = createPreparedDataMapper();
 
     public static void main(String[] args) throws IOException {
         downloadAndInitialiseDataset(false);
+    }
+
+    private static ObjectMapper createPreparedDataMapper() {
+        SimpleModule module = new SimpleModule();
+        module.addDeserializer(Date.class, new PreparedDateDeserializer());
+        return new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .registerModule(module);
+    }
+
+    private static final class PreparedDateDeserializer extends JsonDeserializer<Date> {
+        @Override
+        public Date deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+            return readDateValue(parser);
+        }
+
+        private Date readDateValue(JsonParser parser) throws IOException {
+            JsonToken token = parser.currentToken();
+            return switch (token) {
+                case VALUE_NUMBER_INT -> new Date(parser.getLongValue());
+                case VALUE_STRING -> parseDateString(parser.getText(), parser);
+                case START_OBJECT -> readDateObject(parser);
+                case VALUE_NULL -> null;
+                default -> throw JsonMappingException.from(parser, "Unsupported date value token: " + token);
+            };
+        }
+
+        private Date readDateObject(JsonParser parser) throws IOException {
+            Date date = null;
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                String fieldName = parser.currentName();
+                parser.nextToken();
+                if ("$date".equals(fieldName) || "$numberLong".equals(fieldName)) {
+                    date = readDateValue(parser);
+                } else {
+                    parser.skipChildren();
+                }
+            }
+            return date;
+        }
+
+        private Date parseDateString(String rawValue, JsonParser parser) throws IOException {
+            String value = rawValue == null ? "" : rawValue.trim();
+            if (value.isEmpty()) {
+                return null;
+            }
+            try {
+                if (value.matches("-?\\d+")) {
+                    return new Date(Long.parseLong(value));
+                }
+                return Date.from(Instant.parse(value));
+            } catch (RuntimeException e) {
+                throw JsonMappingException.from(parser, "Unsupported date value: " + rawValue, e);
+            }
+        }
     }
 
     public static void downloadAndInitialiseDataset() throws IOException {
@@ -64,14 +134,188 @@ public class PrepareDataEntryPoint {
 //         writeSampleData(images, categories);
     }
 
+    public static void loadPreparedDataset(Path dataDirectory) throws IOException {
+        loadPreparedDataset(dataDirectory, "/atlas-vector-search-index.json");
+    }
+
+    public static void loadPreparedDataset(Path dataDirectory, String vectorIndexResourcePath) throws IOException {
+        if (!Files.isDirectory(dataDirectory)) {
+            throw new IOException("Prepared data directory does not exist: %s".formatted(dataDirectory.toAbsolutePath()));
+        }
+
+        Path categoryFile = dataDirectory.resolve("%s.%s.json".formatted(MongoConnection.database_name, CategoryDataAccess.collection_name));
+        Path imageFile = dataDirectory.resolve("%s.%s.json".formatted(MongoConnection.database_name, ImageDataAccess.collection_name));
+        if (Files.notExists(categoryFile)) {
+            throw new IOException("Prepared category data file does not exist: %s".formatted(categoryFile.toAbsolutePath()));
+        }
+        if (Files.notExists(imageFile)) {
+            throw new IOException("Prepared image data file does not exist: %s".formatted(imageFile.toAbsolutePath()));
+        }
+
+        CategoryDataAccess categoryDataAccess = CategoryDataAccess.getInstance();
+        ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
+        categoryDataAccess.removeAll();
+        imageDataAccess.removeAll();
+
+        importJsonArray(categoryFile, Category.class, categoryDataAccess::insertBulk, CategoryDataAccess.collection_name, _ -> false);
+        boolean hasVectorEmbeddings = importJsonArray(imageFile, Image.class, imageDataAccess::insertBulk, ImageDataAccess.collection_name, PrepareDataEntryPoint::imageHasVectorEmbedding);
+
+        buildAtlasIndex();
+        if (hasVectorEmbeddings) {
+            buildAtlasVectorIndex(vectorIndexResourcePath);
+        }
+    }
+
+    private static <T> boolean importJsonArray(
+            Path file,
+            Class<T> documentClass,
+            Consumer<List<T>> insertBulk,
+            String collectionName,
+            Predicate<T> vectorEmbeddingDetector
+    ) throws IOException {
+        long totalDocuments = countJsonArrayDocuments(file);
+        log.info("Loading {} prepared documents from {} into collection {}", totalDocuments, file.toAbsolutePath(), collectionName);
+        boolean hasVectorEmbeddings = false;
+        BatchedInserter<T> inserter = BatchedInserter.create(insertBulk, collectionName, "prepared documents", totalDocuments);
+
+        JsonFactory jsonFactory = preparedDataMapper.getFactory();
+        try (JsonParser parser = jsonFactory.createParser(file.toFile())) {
+            if (parser.nextToken() != JsonToken.START_ARRAY) {
+                throw new IOException("Prepared data file must contain a JSON array: %s".formatted(file.toAbsolutePath()));
+            }
+            while (parser.nextToken() != null && parser.currentToken() != JsonToken.END_ARRAY) {
+                T document = preparedDataMapper.readValue(parser, documentClass);
+                if (!hasVectorEmbeddings && vectorEmbeddingDetector.test(document)) {
+                    hasVectorEmbeddings = true;
+                }
+                inserter.add(document);
+            }
+        }
+
+        inserter.finish();
+        return hasVectorEmbeddings;
+    }
+
+    private static long countJsonArrayDocuments(Path file) throws IOException {
+        long documents = 0;
+        JsonFactory jsonFactory = preparedDataMapper.getFactory();
+        try (JsonParser parser = jsonFactory.createParser(file.toFile())) {
+            if (parser.nextToken() != JsonToken.START_ARRAY) {
+                throw new IOException("Prepared data file must contain a JSON array: %s".formatted(file.toAbsolutePath()));
+            }
+            while (parser.nextToken() != null && parser.currentToken() != JsonToken.END_ARRAY) {
+                parser.skipChildren();
+                documents++;
+            }
+        }
+        return documents;
+    }
+
+    private static boolean imageHasVectorEmbedding(Image image) {
+        return image.captionEmbedding() != null && !image.captionEmbedding().isEmpty();
+    }
+
     private static void writeToLocalMongoDB(List<Category> categories, List<Image> images) {
         CategoryDataAccess categoryDataAccess = CategoryDataAccess.getInstance();
         categoryDataAccess.removeAll();
-        categoryDataAccess.insertBulk(categories);
+        insertBulkWithProgress(categories, categoryDataAccess::insertBulk, CategoryDataAccess.collection_name);
 
         ImageDataAccess imageDataAccess = ImageDataAccess.getInstance();
         imageDataAccess.removeAll();
-        imageDataAccess.insertBulk(images);
+        insertBulkWithProgress(images, imageDataAccess::insertBulk, ImageDataAccess.collection_name);
+    }
+
+    private static <T> void insertBulkWithProgress(List<T> documents, Consumer<List<T>> insertBulk, String collectionName) {
+        log.info("Loading {} documents into collection {}", documents.size(), collectionName);
+        BatchedInserter<T> inserter = BatchedInserter.create(insertBulk, collectionName, "documents", documents.size());
+        for (T document : documents) {
+            inserter.add(document);
+        }
+        inserter.finish();
+    }
+
+    private static final class BatchedInserter<T> {
+        private final Consumer<List<T>> insertBulk;
+        private final LoadProgress progress;
+        private final List<T> batch = new ArrayList<>(IMPORT_BATCH_SIZE);
+
+        private BatchedInserter(Consumer<List<T>> insertBulk, String collectionName, String documentLabel, long totalDocuments) {
+            this.insertBulk = insertBulk;
+            this.progress = LoadProgress.start(collectionName, documentLabel, totalDocuments);
+        }
+
+        private static <T> BatchedInserter<T> create(Consumer<List<T>> insertBulk, String collectionName, String documentLabel, long totalDocuments) {
+            return new BatchedInserter<>(insertBulk, collectionName, documentLabel, totalDocuments);
+        }
+
+        private void add(T document) {
+            batch.add(document);
+            if (batch.size() == IMPORT_BATCH_SIZE) {
+                flush();
+            }
+        }
+
+        private void finish() {
+            flush();
+            progress.finish();
+        }
+
+        private void flush() {
+            if (batch.isEmpty()) {
+                return;
+            }
+
+            insertBulk.accept(new ArrayList<>(batch));
+            progress.loaded(batch.size());
+            batch.clear();
+        }
+    }
+
+    private static final class LoadProgress {
+        private final String collectionName;
+        private final String documentLabel;
+        private final long totalDocuments;
+        private final Instant startedAt;
+        private Instant lastProgressLogAt;
+        private long loadedDocuments;
+
+        private LoadProgress(String collectionName, String documentLabel, long totalDocuments) {
+            this.collectionName = collectionName;
+            this.documentLabel = documentLabel;
+            this.totalDocuments = totalDocuments;
+            this.startedAt = Instant.now();
+            this.lastProgressLogAt = startedAt;
+        }
+
+        private static LoadProgress start(String collectionName, String documentLabel, long totalDocuments) {
+            return new LoadProgress(collectionName, documentLabel, totalDocuments);
+        }
+
+        private void loaded(long documentCount) {
+            loadedDocuments += documentCount;
+            Instant now = Instant.now();
+            if (Duration.between(lastProgressLogAt, now).compareTo(IMPORT_PROGRESS_LOG_INTERVAL) >= 0) {
+                log(now);
+                lastProgressLogAt = now;
+            }
+        }
+
+        private void finish() {
+            log(Instant.now());
+        }
+
+        private void log(Instant now) {
+            double percentage = totalDocuments == 0
+                    ? 100.0
+                    : loadedDocuments * 100.0 / totalDocuments;
+            log.info("Loaded {}/{} {} into collection {} ({}%) after {}",
+                    loadedDocuments,
+                    totalDocuments,
+                    documentLabel,
+                    collectionName,
+                    "%.2f".formatted(percentage),
+                    Duration.between(startedAt, now));
+        }
     }
 
     private static void buildAtlasIndex() throws IOException {
@@ -86,7 +330,11 @@ public class PrepareDataEntryPoint {
     }
 
     private static void buildAtlasVectorIndex() throws IOException {
-        String indexResource = readIndexResource("/atlas-vector-search-index.json");
+        buildAtlasVectorIndex("/atlas-vector-search-index.json");
+    }
+
+    private static void buildAtlasVectorIndex(String resourcePath) throws IOException {
+        String indexResource = readIndexResource(resourcePath);
 
         MongoConnection.createAtlasIndex(
                 MongoConnection.database_name,

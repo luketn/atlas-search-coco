@@ -9,6 +9,22 @@ docker compose up java-app
 
 This keeps the existing behavior and loads caption text only.
 
+### Run with Prepared Data
+If the prepared MongoDB JSON files already exist locally, load them from a directory instead of downloading COCO or regenerating embeddings:
+
+```bash
+JAVA_APP_ARGS="--loadDataFromDirectory ./Data" docker compose up java-app
+```
+
+The loader expects files named for the configured database and collections, for example:
+
+```text
+Data/atlasSearchCoco.category.json
+Data/atlasSearchCoco.image.json
+```
+
+It always creates the text search index. If the image file contains `captionEmbedding` values, it also creates the vector search index.
+
 ### Run with LM Studio Vector Embeddings
 Start LM Studio with an embedding-capable model available on its local API, then run:
 

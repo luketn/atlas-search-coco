@@ -122,6 +122,77 @@ public class SimpleServer {
             return this;
         }
 
+        public SimpleServerBuilder addJsonPostHandler(String path, Function<String, String> handler) {
+            server.createContext(path, exchange -> {
+                try {
+                    if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                        exchange.sendResponseHeaders(405, -1);
+                        exchange.close();
+                        return;
+                    }
+
+                    String requestPath = exchange.getRequestURI().getPath();
+                    String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    log.info("Received POST request with path {}", requestPath);
+
+                    String result = handler.apply(requestBody);
+
+                    exchange.getResponseHeaders().add("Content-Type", "application/json");
+                    byte[] bytes = result.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
+                } catch (Exception e) {
+                    log.error("Error handling request", e);
+                    byte[] bytes = ("Error handling request: " + e.getMessage()).getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().add("Content-Type", "text/plain");
+                    exchange.sendResponseHeaders(500, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
+                }
+            });
+            return this;
+        }
+
+        public SimpleServerBuilder addDeleteHandler(String path, Function<Map<String, List<String>>, String> handler) {
+            server.createContext(path, exchange -> {
+                try {
+                    if (!"DELETE".equalsIgnoreCase(exchange.getRequestMethod())) {
+                        exchange.sendResponseHeaders(405, -1);
+                        exchange.close();
+                        return;
+                    }
+
+                    String query = exchange.getRequestURI().getQuery();
+                    Map<String, List<String>> queryParameters;
+                    if (query != null) {
+                        queryParameters = parseQueryString(query);
+                    } else {
+                        queryParameters = Map.of();
+                    }
+
+                    String requestPath = exchange.getRequestURI().getPath();
+                    log.info("Received DELETE request with path {} and query parameters: {}", requestPath, queryParameters);
+
+                    String result = handler.apply(queryParameters);
+
+                    exchange.getResponseHeaders().add("Content-Type", "application/json");
+                    byte[] bytes = result.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
+                } catch (Exception e) {
+                    log.error("Error handling request", e);
+                    byte[] bytes = ("Error handling request: " + e.getMessage()).getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().add("Content-Type", "text/plain");
+                    exchange.sendResponseHeaders(500, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
+                }
+            });
+            return this;
+        }
+
         public SimpleServer build() {
             return new SimpleServer(this.server);
         }

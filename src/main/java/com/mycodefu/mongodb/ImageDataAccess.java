@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import static com.mongodb.client.model.Filters.eq;
+import static com.mongodb.client.model.Sorts.descending;
 import static com.mycodefu.mongodb.atlas.MongoConnection.database_name;
 
 public class ImageDataAccess implements AutoCloseable {
@@ -56,12 +57,24 @@ public class ImageDataAccess implements AutoCloseable {
         imageCollection.insertOne(image);
     }
 
+    public int nextImageId() {
+        Image highestImage = imageCollection.find()
+                .sort(descending("_id"))
+                .limit(1)
+                .first();
+        return highestImage == null ? 1 : highestImage._id() + 1;
+    }
+
     public void insertBulk(List<Image> images) {
         imageCollection.insertMany(images);
     }
 
     public Image get(int id) {
         return imageCollection.find(eq("_id", id)).first();
+    }
+
+    public boolean delete(int id) {
+        return imageCollection.deleteOne(eq("_id", id)).getDeletedCount() > 0;
     }
 
     public void removeAll() {
