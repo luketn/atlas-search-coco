@@ -40,6 +40,23 @@ Or:
 JAVA_APP_ARGS=--lmStudioVectorEmbeddings docker compose up java-app
 ```
 
+### For image upload and local captioning startup
+
+- LM Studio is running locally.
+- The embedding model `text-embedding-nomic-embed-text-v1.5` is available through the LM Studio API.
+- The vision model `mlx-community/gemma-4-e4b-it-8bit` is loaded or available. If LM Studio cannot load it through the API, load it manually in LM Studio before testing.
+- Start the app with upload captioning enabled:
+
+```bash
+mvn compile exec:java -Dexec.args="--enableUploadsWithLMStudioCaptioning"
+```
+
+Or:
+
+```bash
+JAVA_APP_ARGS=--enableUploadsWithLMStudioCaptioning docker compose up java-app
+```
+
 ## Test Cases
 
 ### 1. App loads successfully
@@ -51,6 +68,8 @@ JAVA_APP_ARGS=--lmStudioVectorEmbeddings docker compose up java-app
 
 Expected result:
 - The page shows search inputs, filters, and result cards.
+- Results are ordered by `dateCaptured` descending, so recently added images appear first after Atlas Search catches up.
+- Search results show 15 items per page in the UI.
 
 ### 2. Text-only mode hides vector controls when no vector index exists
 
@@ -133,17 +152,19 @@ Expected result:
 - Click any result card.
 
 Expected result:
-- A detail dialog opens.
+- The app switches to the full-screen result view.
 - The large image is displayed.
 - The caption is shown underneath.
 - Tags are shown underneath.
 - The dimensions are shown correctly.
+- The `Delete Image` button is visible at the bottom-right of the details panel.
+- Delete buttons are not visible on grid cards.
 
 ### 10. Detail viewer left/right navigation works
 
 - Open the detail viewer from any result card.
-- Click the right arrow several times.
-- Click the left arrow several times.
+- Click `Next` several times.
+- Click `Previous` several times.
 
 Expected result:
 - The viewer advances one result at a time.
@@ -154,11 +175,11 @@ Expected result:
 
 - Search for a term with more than one page of results, such as `cat`.
 - Open the first result in the detail viewer.
-- Keep clicking the right arrow until you move beyond the fifth result.
+- Keep clicking `Next` until you move beyond the last result on the current page.
 
 Expected result:
 - The viewer continues into the next page automatically.
-- The result counter continues increasing.
+- The first image from the next page is shown.
 - The app does not require closing the viewer to continue browsing.
 
 ### 12. Detail viewer can navigate back across a page boundary
@@ -171,12 +192,13 @@ Expected result:
 
 ### 13. Pagination controls work in the main results view
 
-- Use `Next` and `Previous` buttons in the main results area.
+- Use `Next Page` and `Previous Page` buttons in the main results area.
 
 Expected result:
 - The page number updates correctly.
 - Results change correctly.
 - No duplicate or stale results are shown for the selected page.
+- If the app is in full-screen view, clicking `Next Page` or `Previous Page` changes the displayed image to the first image on the target page.
 
 ### 14. Filters combine correctly with search
 
@@ -225,6 +247,103 @@ Expected result:
 - The vector index is available after startup.
 - Vector and hybrid search work in the UI.
 
+### 18. Upload captioning controls are hidden without the upload flag
+
+- Start the app without `--enableUploadsWithLMStudioCaptioning`.
+- Open `http://localhost:8222`.
+
+Expected result:
+- The `Add Image` button is not shown in the left sidebar.
+- Existing search and result browsing still works normally.
+
+### 19. Add Image screen opens and returns with Back
+
+- Start the app with `--enableUploadsWithLMStudioCaptioning`.
+- Open `http://localhost:8222`.
+- Click the blue `+ Add Image` button in the left sidebar.
+- Click `Back`.
+
+Expected result:
+- The upload/caption screen opens.
+- The sidebar button changes to `Back`.
+- Clicking `Back` returns to the previous search screen without losing the current search state.
+
+### 20. Image URL captioning returns structured labels
+
+- Open the `Add Image` screen.
+- Paste or type an image URL.
+- Click `Create Caption`.
+
+Expected result:
+- A preview is shown.
+- The generated caption remains visible on the upload screen.
+- The result includes `Labels`, `Category Labels`, and `Caption Embedding`.
+- Labels are typed, for example `furniture: chair`, and only use categories that already exist in the index.
+- The screen does not close automatically after captioning.
+
+### 21. Clipboard paste supports image files and URLs
+
+- Open the `Add Image` screen.
+- Focus the `Image URL` field.
+- Paste an image URL.
+- Repeat with an image in the system clipboard if available.
+
+Expected result:
+- Pasting a URL fills the URL field and shows the URL preview.
+- Pasting an image uses the image data directly and clears the URL field.
+- Pasting works regardless of which upload-screen element has focus.
+
+### 22. File upload captioning works
+
+- Open the `Add Image` screen.
+- Click `Choose Image File`.
+- Select an image from disk.
+- Click `Create Caption`.
+
+Expected result:
+- The selected image preview is shown.
+- Captioning completes successfully.
+- Typed labels and embedding are shown.
+
+### 23. Webcam capture works when browser permission is granted
+
+- Open the `Add Image` screen.
+- Click `Use Webcam`.
+- Approve camera permission in the browser if prompted.
+- Capture an image.
+- Click `Create Caption`.
+
+Expected result:
+- The webcam preview appears.
+- Capturing freezes a still image as the upload preview.
+- Captioning completes successfully.
+
+### 24. Adding a captioned image keeps the upload screen open
+
+- Generate a caption from URL, file, clipboard, or webcam.
+- Click `Add`.
+
+Expected result:
+- The screen stays on `Caption Image`.
+- The button changes to `Added`.
+- The added image appears at the top of search results after Atlas Search catches up.
+- Searching for the generated caption returns the added image.
+
+### 25. Deleting an image works from full-screen view only
+
+- Open a result in full-screen view.
+- Confirm the `Delete Image` button is visible at the bottom-right.
+- Confirm no delete button is present on grid cards.
+- Click `Delete Image`.
+- Cancel the confirmation prompt.
+- Repeat and confirm only for a disposable uploaded image.
+
+Expected result:
+- Cancel does not delete the image.
+- Confirm deletes the image.
+- The deleted image is removed from the current result list.
+- Subsequent search no longer returns the deleted image after Atlas Search catches up.
+
 ## Suggested Smoke Test Sequence
 
 For a short end-to-end regression pass, run these in order:
@@ -235,4 +354,7 @@ For a short end-to-end regression pass, run these in order:
 4. Verify hybrid search with `newspaper` plus filters.
 5. Open a result in the detail viewer.
 6. Navigate past the page boundary in the detail viewer.
-7. Re-run the app without a vector index and confirm the search type controls disappear.
+7. Open Add Image, generate a caption from an image URL, and verify typed labels.
+8. Add the captioned image and confirm search can find it.
+9. Verify delete is available only in full-screen view.
+10. Re-run the app without a vector index and confirm the search type controls disappear.
