@@ -27,7 +27,7 @@ mvn dependency:build-classpath -Dmdep.outputFile=target/classpath.txt
 Set `TLS_DIR` to the directory containing the existing TLS files:
 
 ```bash
-TLS_DIR=/path/to/community-quick-start/tls
+TLS_DIR=/Users/luketn/code/tmp/mongot/community-quick-start/tls/
 ```
 
 The directory should already contain files like:
